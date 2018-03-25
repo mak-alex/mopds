@@ -4,7 +4,7 @@ import (
 	"archive/zip"
 	"bitbucket.org/enlab/mopds/models"
 	"bitbucket.org/enlab/mopds/modules/datastore"
-	"bitbucket.org/enlab/mopds/modules/fb2"
+	"bitbucket.org/enlab/mopds/modules/fb2parse"
 	"bufio"
 	"encoding/json"
 	"fmt"
