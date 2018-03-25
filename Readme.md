@@ -216,6 +216,11 @@ mak@denied ~ $ http :8000/series/1/books/1/download
 mak@denied ~ $ http :8000/scan
 ```
 
+#### Get configuration file
+```bash
+mak@denied ~ $ http :8000/conf
+
+```
 #### Update confiuration file
 ```bash
 mak@denied ~ $ http --form POST :8000/conf data="catalog /mnt/books"
