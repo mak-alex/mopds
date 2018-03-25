@@ -5,10 +5,10 @@ import (
 	"fmt"
 	"log"
 	"regexp"
+	"strconv"
 	"strings"
 	"unicode"
 	"unicode/utf8"
-	"strconv"
 )
 
 const (
@@ -20,7 +20,6 @@ var (
 	re_split = regexp.MustCompile(RE_NOT_SEPARATORS)
 	re_unsup = regexp.MustCompile(RE_UNSUPPORTED_CHARS)
 )
-
 
 func ReplaceUnsupported(str string) string {
 	return re_unsup.ReplaceAllString(str, "_")
@@ -70,5 +69,3 @@ func PrintJson(object interface{}) {
 		log.Fatalln("Invalid object")
 	}
 }
-
-

@@ -1,115 +1,20 @@
 package main
 
 import (
+	"encoding/json"
 	"fmt"
+	"io/ioutil"
 	"log"
 	"os"
-	"io/ioutil"
 	"path/filepath"
-	"encoding/json"
 
-	"bitbucket.org/enlab/mopds/datastore"
-	"bitbucket.org/enlab/mopds/inpx"
 	"bitbucket.org/enlab/mopds/models"
-	"bitbucket.org/enlab/mopds/rest"
+	"bitbucket.org/enlab/mopds/modules/datastore"
+	"bitbucket.org/enlab/mopds/modules/inpx"
+	"bitbucket.org/enlab/mopds/modules/rest"
 	"bitbucket.org/enlab/mopds/utils"
-	"github.com/alexflint/go-arg"
+	"github.com/namsral/flag"
 )
-// TODO: перенести уже проект на bitbucket.org/enlab/mopds
-// ибо хуй его знает, всяко бывает а без отката...пздц крч
-
-/*
-TODO: добить консольный опрос...
-TODO: РЕШИТЬ ВОПРОС С ДУБЛЯМИ (СЕРИЯ/КНИГИ/ЖАНРЫ/АВТОРЫ) при индексации
-TODO: во-первых, скан архивов это хорошо, а если в директории только файлы?
-TODO: во-вторых, смотри rest/restservice.go
-TODO: в третьих, необходим проход по всем найденным *.inpx...не один
-TODO: в четвертых, необходимы условия сканирования INPX:
-	1) если решили проверять на наличии ZIP файла или книги в ZIP,
-	а самого файла нет, пропускаем обработку архива
-	2) если решили проверять наличие файлов (fb2) в ZIP, то
-	получаем однократно список файлов
-		2.1) если книги не оказалось в наличии, пропускаем обработку
-	3) если книга помечена как удаленная, пропускаем обработку
-	4) если в имени автора нет запятой, то фамилию переносим в начало
-TODO: в пятых, условия:
-	1) если разрешена обработка inpx, то при нахождении обрабатываем его
-	и прекращаем обработку текущего каталога
-		1.1) пропускаем обработку файлов (zip) в текущем каталоге, если
-		найдены inpx
-TODO: в шестых, добавить колбек счетчик, чего сколько было добавлено,
-	почему не добавленно и чего и т.д. и т.п., по анологии с sopds
-TODO: в 7-ых, логировать в файл, также стоит подумать о глубине логирования и связи DBLog and (Verbose or Debug)
-*/
-
-type DBConfig struct {
-	Host     string
-	Username string
-	Password string
-	Database string
-	DBType	 string `arg:"-t" help:"type db: sqlite/postgres/mysql (mandatory)"`
-	DBLog    bool
-	SSLMode	 string `help:" only for postges connection"`
-}
-
-type Mopds struct {
-	Catalog	string  `arg:"-c" help:"Directory of library (mandatory)"`
-	Page		int	`help:"Page navigation"`
-	PerPage		int	`arg:"-l" help:"Limit results (-1 for no limit) (default 10)"`
-
-	GetAuthor	uint	`arg:"--get-author" help:"Get author by id"`
-	GetBook		uint	`arg:"--get-book" help:"Get book by id"`
-	GetGenre	uint	`arg:"--get-genre" help:"Get genre by id"`
-	GetSerie	uint	`arg:"--get-serie" help:"Get serie by id"`
-
-	GetAuthors	bool	`arg:"--get-authors" help:"List all authors"`
-	GetBooks	bool	`arg:"--get-books" help:"List all books"`
-	GetGenres	bool	`arg:"--get-genres" help:"List all genres"`
-	GetSeries	bool	`arg:"--get-series" help:"List all series"`
-
-	GetBooksByAuthor	uint	`arg:"--get-books-by-author" help:"List all author's books by id"`
-	GetBooksByGenre	uint	`arg:"--get-books-by-genre" help:"List all genre's books by id"`
-	GetBooksBySerie	uint	`arg:"--get-books-by-serie" help:"List all serie's books by id"`
-
-	SearchAuthor	string	`arg:"--search-author" help:"Search authors, or books by author if comes with search-title"`
-	SearchBook	string	`arg:"--search-book" help:"Search book by title or filename"`
-	SearchGenre	string	`arg:"--search-genre" help:"Search genre by genre name or section, or subsection"`
-	SearchSerie	string	`arg:"--search-serie" help:"Search serie by serie name"`
-
-	Listen		string	`arg:"--listen" help:"Set server listen address:port (default ":8000")"`
-	Parse		bool	`arg:"-p" help:"Parse inpx to the local database"`
-	Save		bool	`arg:"-s" help:"Save book file to the disk"`
-	SearchLibID	string	`arg:"--search-lib-id" help:"Search book(s) by its libId"`
-	SearchTitle	string	`arg:"--search-title" help:"Search books by their title"`
-}
-
-func (Mopds) Description() string {
-	return `
-mOPDS API
-
-Free program for Linux operating systems, designed to quickly create an electronic OPDS-catalog books. OPDS (Open Publication Distribution System) catalog allows you to access Your library via the Internet from most devices for reading electronic books, tablets, smartphones, etc.
-Current features:
-
-    Recursive crawl specified in the directory configuration file. High speed of scanning-cataloging.
-    Placement in the catalog of e-books, any formats specified in the configuration file.
-    Extraction of meta information from ebooks FB2, EPUB, MOBI (title, authors, genres, series, abstract, language, editing date).
-    The retrieval and display of covers of e-books FB2, EPUB, MOBI.
-    Duplicate detection of books.
-    Search books in zip-archives.
-    Fast download collections of INPX file.
-    There are five possible sorts in the catalog: by catalogs, by authors, by name, by genre, by series.
-    Arbitrary search books by name, author name and series name.
-    You can set a limit to whether items are displayed on a page.
-    Archiving of books for downloading.
-    Conversion of FB2 books to EPUB and MOBI "on the fly" using external converters.
-    Database support SQLite, MySQL, PostgreSQL
-	`
-}
-
-type LogOptions struct {
-	LogFile string
-	Verbose bool
-}
 
 func findINPX(catalog string) []string {
 	inpx_files, err := filepath.Glob(filepath.Join(catalog, "*.inpx"))
@@ -119,25 +24,25 @@ func findINPX(catalog string) []string {
 	return inpx_files
 }
 
-func setConfig(dataDir string, settings DBConfig) *models.DBConfig {
+func setDatabaseConfig(Catalog string, username string, password string, host string, dbname string, dbtype string, dblog bool, sslmode string) *models.DBConfig {
 	result := new(models.DBConfig)
 
-	result.DBType = settings.DBType
-	result.DBLog = settings.DBLog
-	if settings.DBType == "sqlite3" {
-		fileData, err := ioutil.ReadFile(filepath.Join(dataDir, "mopds_db.sqlite"))
+	result.DBType = dbtype
+	result.DBLog = dblog
+	if dbtype == "sqlite3" {
+		fileData, err := ioutil.ReadFile(filepath.Join(Catalog, "mopds_db.sqlite"))
 		if err == nil {
 			err = json.Unmarshal(fileData, result)
 		}
 
 		if err != nil { // fallback to sqlite
-			result.DBParams = filepath.Join(dataDir, "mopds_db.sqlite")
+			result.DBParams = filepath.Join(Catalog, "mopds_db.sqlite")
 		}
-	} else if settings.DBType == "postgres" {
-		if settings.SSLMode == "" {
-			settings.SSLMode = "disable"
+	} else if dbtype == "postgres" {
+		if sslmode == "" {
+			sslmode = "disable"
 		}
-		result.DBParams = fmt.Sprintf("user=%s password=%s DB.name=%s sslmode=%s", settings.Username, settings.Password, settings.Database, settings.SSLMode)
+		result.DBParams = fmt.Sprintf("user=%s password=%s DB.name=%s sslmode=%s", username, password, dbname, sslmode)
 	}
 
 	return result
@@ -145,130 +50,177 @@ func setConfig(dataDir string, settings DBConfig) *models.DBConfig {
 
 func main() {
 	curDir, _ := filepath.Abs(filepath.Dir(os.Args[0]))
-	var args struct {
-		Mopds
-		DBConfig
-		LogOptions
-	}
-	if args.Mopds.Listen == "" {
-		args.Mopds.Listen = ":8000"
-	}
-	if args.DBConfig.Host == "" {
-		args.DBConfig.Host = "localhost"
-	}
-	if args.DBConfig.Username == "" {
-		args.DBConfig.Username = "mopds"
-	}
-	if args.DBConfig.Password == "" {
-		args.DBConfig.Password = "mopds"
-	}
-	if args.DBConfig.Database == "" {
-		args.DBConfig.Database = "mopds"
-	}
-	if args.DBConfig.DBType == "" {
-		args.DBConfig.DBType = "sqlite3"
-	}
-	args.DBConfig.DBLog = true
+	var (
+		config           string
+		Catalog          string
+		Page             int
+		PerPage          int
+		GetAuthor        uint
+		GetBook          uint
+		GetGenre         uint
+		GetSerie         uint
+		GetAuthors       bool
+		GetBooks         bool
+		GetGenres        bool
+		GetSeries        bool
+		GetBooksByAuthor uint
+		GetBooksByGenre  uint
+		GetBooksBySerie  uint
+		SearchAuthor     string
+		SearchBook       string
+		SearchGenre      string
+		SearchSerie      string
+		Stat             bool
+		Listen           string
+		Parse            bool
+		Save             bool
+		SearchLibID      string
+		SearchTitle      string
+		Verbose          bool
+		About            bool
+		Host             string
+		Username         string
+		Password         string
+		DBName           string
+		DBType           string
+		DBLog            bool
+		SSLMode          string
+	)
 
+	flag.StringVar(&config, "config", "./conf/mopds.conf", "Default configuration file")
+	flag.StringVar(&Catalog, "catalog", "", "Directory of library (mandatory)")
+	flag.IntVar(&Page, "page", 0, "Pagination 1...n")
+	flag.IntVar(&PerPage, "per_page", 25, "Limit results (-1 for no limit)")
+	flag.UintVar(&GetAuthor, "get_author", 0, "Get author by id")
+	flag.UintVar(&GetBook, "get_book", 0, "Get book by id")
+	flag.UintVar(&GetGenre, "get_genre", 0, "Get genre by id")
+	flag.UintVar(&GetSerie, "get_serie", 0, "Get serie by id")
+	flag.BoolVar(&GetAuthors, "get_authors", false, "List all authors")
+	flag.BoolVar(&GetBooks, "get_books", false, "List all books")
+	flag.BoolVar(&GetGenres, "get_genres", false, "List all genres")
+	flag.BoolVar(&GetSeries, "get_series", false, "List all series")
+	flag.UintVar(&GetBooksByAuthor, "get_books_by_author", 0, "List all author's books by id")
+	flag.UintVar(&GetBooksByGenre, "get_books_by_genre", 0, "List all genre's books by id")
+	flag.UintVar(&GetBooksBySerie, "get_books_by_serie", 0, "List all serie's books by id")
+	flag.StringVar(&SearchAuthor, "search_author", "", "Search authors, or books by author if comes with search-title")
+	flag.StringVar(&SearchBook, "search_book", "", "Search book by title or filename")
+	flag.StringVar(&SearchGenre, "search_genre", "", "Search genre by genre name or section, or subsection")
+	flag.StringVar(&SearchSerie, "search_serie", "", "Search serie by serie name")
+	flag.BoolVar(&Stat, "stat", false, "Book library statistics")
+	flag.StringVar(&Listen, "listen", ":8000", "Set server listen address:port")
+	flag.BoolVar(&Parse, "parse", false, "Parse inpx to the local database")
+	flag.BoolVar(&Save, "save", false, "Save book file to the disk (ex.: --get_book 1 --save)")
+	flag.StringVar(&SearchLibID, "search_lib_id", "", "Search book(s) by its libId")
+	flag.StringVar(&SearchTitle, "search_title", "", "Search books by their title")
+	flag.BoolVar(&Verbose, "verbose", false, "Verbose output")
+	flag.BoolVar(&About, "about", false, "About author and this project")
+	flag.StringVar(&Host, "host", "modps", "IP address for connect to database")
+	flag.StringVar(&Username, "username", "mopds", "Username for connect to database")
+	flag.StringVar(&Password, "password", "mopds", "Password for connect to database")
+	flag.StringVar(&DBType, "dbtype", "sqlite3", "Type used database: sqlite3, mysql or postgres")
+	flag.StringVar(&DBName, "database", "", "Database name connect to database")
+	flag.StringVar(&SSLMode, "sslmode", "", "Whether to use ssl mode or not, here's the question: disable or enable")
 
-	arg.MustParse(&args)
+	flag.Parse()
 
-	store, err := datastore.NewDBStore(setConfig(args.Mopds.Catalog, args.DBConfig))
+	DBLog = Verbose
+	conf := setDatabaseConfig(Catalog, Username, Password, Host, DBName, DBType, DBLog, SSLMode)
+	store, err := datastore.NewDBStore(conf)
 	if err != nil {
 		log.Fatalln("Failed to open database")
 	}
 	defer store.Close()
 
-	if args.Mopds.Parse {
-		inpx_file := findINPX(args.Mopds.Catalog)[0]
-		log.Printf("Opening %s to parse data\n", args.Mopds.Parse)
+	if Parse {
+		inpx_file := findINPX(Catalog)[0]
+		log.Printf("Opening %s to parse data\n", Parse)
 		go func() {
-			inpx.ReadInpxFile(inpx_file, args.Mopds.Catalog, store)
+			inpx.ReadInpxFile(inpx_file, Catalog, store)
 		}()
-		rest.NewRestService(args.Mopds.Listen, store, args.Mopds.Catalog).StartListen()
-	} else if args.Mopds.SearchLibID != "" {
-		result, err := store.FindBooksByLibID(args.Mopds.SearchLibID)
+		rest.NewRestService(Listen, store, Catalog).StartListen()
+	} else if SearchLibID != "" {
+		result, err := store.FindBooksByLibID(SearchLibID)
 		if err == nil && len(result) != 0 {
 			utils.PrintJson(result)
 		} else {
 			log.Println("Nothing found")
 		}
-	} else if args.Mopds.SearchTitle != "" {
-		result, err := store.FindBooks(models.Search{Title: args.Mopds.SearchTitle, Author: args.Mopds.SearchAuthor, Limit: args.Mopds.PerPage})
+	} else if SearchTitle != "" {
+		result, err := store.FindBooks(models.Search{Title: SearchTitle, Author: SearchAuthor, Limit: PerPage})
 		if err == nil && len(result) != 0 {
 			utils.PrintJson(result)
 		} else {
 			log.Println("Nothing found")
 		}
-	} else if args.Mopds.SearchAuthor != "" {
-		result, err := store.GetAuthors(args.Mopds.SearchAuthor, args.Mopds.Page, args.Mopds.PerPage)
+	} else if SearchAuthor != "" {
+		result, err := store.GetAuthors(SearchAuthor, Page, PerPage)
 		if err == nil {
 			utils.PrintJson(result)
 		} else {
 			log.Println("Nothing found")
 		}
-	} else if args.Mopds.GetAuthors {
-		result, err := store.GetAuthors("", args.Mopds.Page, args.Mopds.PerPage)
+	} else if GetAuthors {
+		result, err := store.GetAuthors("", Page, PerPage)
 		if err == nil {
 			utils.PrintJson(result)
 		} else {
 			log.Println("Nothing found")
 		}
-	} else if args.Mopds.GetBooks {
-		result, err := store.GetBooks("", args.Mopds.Page, args.Mopds.PerPage)
+	} else if GetBooks {
+		result, err := store.GetBooks("", Page, PerPage)
 		if err == nil {
 			utils.PrintJson(result)
 		} else {
 			log.Println("Nothing found")
 		}
-	} else if args.Mopds.GetGenres {
-		result, err := store.GetGenres(args.Mopds.Page, args.Mopds.PerPage) // фильтр добавить
+	} else if GetGenres {
+		result, err := store.GetGenres(Page, PerPage) // фильтр добавить
 		if err == nil {
 			utils.PrintJson(result)
 		} else {
 			log.Println("Nothing found")
 		}
-	} else if args.Mopds.GetSeries {
-		result, err := store.GetSeries(args.Mopds.Page, args.Mopds.PerPage) // фильтр добавить
+	} else if GetSeries {
+		result, err := store.GetSeries(Page, PerPage) // фильтр добавить
 		if err == nil {
 			utils.PrintJson(result)
 		} else {
 			log.Println("Nothing found")
 		}
-	} else if args.Mopds.GetBooksByAuthor != 0 {
-		result, err := store.ListAuthorBooks(args.Mopds.GetBooksByAuthor, false, args.Mopds.Page, args.Mopds.PerPage, models.Search{})
+	} else if GetBooksByAuthor != 0 {
+		result, err := store.ListAuthorBooks(GetBooksByAuthor, false, Page, PerPage, models.Search{})
 		if err == nil {
 			utils.PrintJson(result)
 		} else {
 			log.Println("Nothing found")
 		}
-	} else if args.Mopds.GetBooksByGenre != 0 {
-		result, err := store.ListGenreBooks(args.Mopds.GetBooksByGenre, false, args.Mopds.Page, args.Mopds.PerPage, models.Search{})
+	} else if GetBooksByGenre != 0 {
+		result, err := store.ListGenreBooks(GetBooksByGenre, false, Page, PerPage, models.Search{})
 		if err == nil {
 			utils.PrintJson(result)
 		} else {
 			log.Println("Nothing found")
 		}
-	} else if args.Mopds.GetBooksBySerie != 0 {
-		result, err := store.ListSerieBooks(args.Mopds.GetBooksBySerie, false, args.Mopds.Page, args.Mopds.PerPage, models.Search{})
+	} else if GetBooksBySerie != 0 {
+		result, err := store.ListSerieBooks(GetBooksBySerie, false, Page, PerPage, models.Search{})
 		if err == nil {
 			utils.PrintJson(result)
 		} else {
 			log.Println("Nothing found")
 		}
-	} else if args.Mopds.GetAuthor != 0 {
-		result, err := store.GetAuthor(args.Mopds.GetAuthor)
+	} else if GetAuthor != 0 {
+		result, err := store.GetAuthor(GetAuthor)
 		if err == nil {
 			utils.PrintJson(result)
 		} else {
 			log.Println("Nothing found")
 		}
-	} else if args.Mopds.GetBook != 0 {
-		result, err := store.GetBook(args.Mopds.GetBook)
+	} else if GetBook != 0 {
+		result, err := store.GetBook(GetBook)
 		if err == nil {
 			utils.PrintJson(result)
-			if args.Mopds.Save {
-				err = inpx.UnzipBookFile(args.Mopds.Catalog, result, curDir, true)
+			if Save {
+				err = inpx.UnzipBookFile(Catalog, result, curDir, true)
 				if err != nil {
 					log.Fatalln("Failed to save file", err)
 				}
@@ -276,21 +228,38 @@ func main() {
 		} else {
 			log.Println("Nothing found")
 		}
-	} else if args.Mopds.GetGenre != 0 {
-		result, err := store.GetGenre(args.Mopds.GetGenre)
+	} else if GetGenre != 0 {
+		result, err := store.GetGenre(GetGenre)
 		if err == nil {
 			utils.PrintJson(result)
 		} else {
 			log.Println("Nothing found")
 		}
-	} else if args.Mopds.GetSerie != 0 {
-		result, err := store.GetSerie(args.Mopds.GetSerie)
+	} else if GetSerie != 0 {
+		result, err := store.GetSerie(GetSerie)
 		if err == nil {
 			utils.PrintJson(result)
 		} else {
 			log.Println("Nothing found")
 		}
+	} else if Stat {
+		result, err := store.GetSummary()
+		if err == nil {
+			utils.PrintJson(result)
+		} else {
+			log.Println("Nothing found")
+		}
+	} else if About {
+		devinfo := models.DevInfo{}
+		devinfo.Author = "Alexandr Mikhailenko a.k.a Alex M.A.K."
+		devinfo.Email = "alex-m.a.k@yandex.kz"
+		devinfo.Project.Name = "mOPDS"
+		devinfo.Project.Version = "0.1.0"
+		devinfo.Project.Link = "bitbucket.org/enlab/mopds"
+		devinfo.Project.Created = "24.03.18 22:59"
+
+		utils.PrintJson(devinfo)
 	} else {
-		rest.NewRestService(args.Mopds.Listen, store, args.Mopds.Catalog).StartListen()
+		rest.NewRestService(Listen, store, Catalog).StartListen()
 	}
 }
