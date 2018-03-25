@@ -4,10 +4,10 @@ import (
 	"archive/zip"
 	"bitbucket.org/enlab/mopds/models"
 	"bitbucket.org/enlab/mopds/modules/datastore"
+	"bitbucket.org/enlab/mopds/modules/fb2"
 	"bufio"
 	"encoding/json"
 	"fmt"
-	"github.com/centrypoint/fb2"
 	"io"
 	"io/ioutil"
 	"log"
@@ -210,7 +210,7 @@ func trimSlice(in []string) []string {
 
 func processBook(line string, update bool, zipCatalog string) (book *models.Book, err error) {
 	elements := strings.Split(line, string([]byte{0x04}))
-	genres, _ := LoadGenres("/home/mak/.go/src/bitbucket.org/enlab/mopds/inpx/genre.json")
+	genres, _ := LoadGenres("modules/inpx/genre.json")
 	if len(elements) < 12 {
 		return book, fmt.Errorf("Illegal number of elements")
 	}
