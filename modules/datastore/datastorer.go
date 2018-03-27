@@ -21,10 +21,12 @@ type DataStorer interface {
 	GetGenre(genreID uint) (*models.Genre, error)
 	GetAuthors(author string, page int, per_page int) (*paginate.PaginatedList, error)
 	GetBooks(title string, page int, per_page int) (*paginate.PaginatedList, error)
+	GetGenresMenu() ([]models.ItemMenu, error)
 	GetGenres(page int, per_page int) (*paginate.PaginatedList, error)
 	GetSeries(page int, per_page int) (*paginate.PaginatedList, error)
 	GetLangs() ([]string, error)
 	GetSummary() (models.Summary, error)
 	IsCatalogExist(fileName string) bool
+	IsFileExist(fileName string) bool
 	Close()
 }

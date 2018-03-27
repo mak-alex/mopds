@@ -9,13 +9,12 @@ import (
 var re = regexp.MustCompile(`^[\s\,]*(.*?)[\,\s]*$`)
 
 type Book struct {
-	ID          uint         `gorm:"primary_key"`
+  ID          uint         `json:"id" gorm:"primary_key"`
 	CatalogID   uint         `json:"-"`
-	FileName    string       `json:"filename"`
+	FileName    string       `json:"filename" gorm:"unique_index"`
 	Path        string       `json:"path"`
 	Format      string       `json:"format"`
-	Title       string       `json:"title" gorm:"index"`
-	SearchTitle string       `json:"search_title"`
+	Title       string       `json:"title"`
 	DocDate     string       `json:"docdate"`
 	Lang        string       `json:"lang"`
 	FileSize    string       `json:"filesize"`
@@ -25,7 +24,7 @@ type Book struct {
 	LibID       string       `json:"lib_id" gorm:"index"`
 	CatalogType uint         `json:"cat_type"`
 	Catalog     Catalog      `json:"catalog"`
-	LangCode    uint         `json:"lang_code"`
+	LangCode    int          `json:"lang_code"`
 	SerNo       string       `json:"ser_no,omitempty"`
 	Del         string       `json:"del"`
 	Authors     []Author     `json:"authors" gorm:"many2many:bauthors;"`

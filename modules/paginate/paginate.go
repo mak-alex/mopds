@@ -11,8 +11,8 @@ type PaginatedList struct {
 	Page       int         `json:"page"`
 	PerPage    int         `json:"per_page"`
 	PageCount  int         `json:"page_count"`
-	TotalCount int         `json:"total"`
-	Items      interface{} `json:"items"`
+	TotalCount int         `json:"total_count"`
+	Items      interface{} `json:"data"`
 }
 
 func parseInt(value string, defaultValue int) int {

@@ -5,17 +5,23 @@ import (
 	"fmt"
 	"io/ioutil"
 	"log"
-	"os"
+    "os"
 	"path/filepath"
 
 	"bitbucket.org/enlab/mopds/models"
 	"bitbucket.org/enlab/mopds/modules/datastore"
-	"bitbucket.org/enlab/mopds/modules/inpx"
+	// "bitbucket.org/enlab/mopds/modules/inpx"
+    "bitbucket.org/enlab/mopds/modules/books"
 	"bitbucket.org/enlab/mopds/modules/rest"
 	"bitbucket.org/enlab/mopds/utils"
 	"github.com/namsral/flag"
 )
 
+// TODO: пофиксить проблему с кодировками при индексировании файло из архивов
+// TODO: пофиксить проблему с дубликатами при индексировании (и при повтороном)
+// TODO: добавить возможность индексировать без inpx
+// TODO: добавить поддержку форматов epub/pdf
+// TODO: добавить возможность индексировать директорию с *.{fb2,epub}
 func findINPX(catalog string) []string {
 	inpx_files, err := filepath.Glob(filepath.Join(catalog, "*.inpx"))
 	if err != nil {
@@ -49,7 +55,7 @@ func setDatabaseConfig(Catalog string, username string, password string, host st
 }
 
 func main() {
-	curDir, _ := filepath.Abs(filepath.Dir(os.Args[0]))
+    curDir, _ := filepath.Abs(filepath.Dir(os.Args[0]))
 	var (
 		config           string
 		Catalog          string
@@ -132,95 +138,94 @@ func main() {
 	defer store.Close()
 
 	if Parse {
-		inpx_file := findINPX(Catalog)[0]
-		log.Printf("Opening %s to parse data\n", Parse)
-		go func() {
-			inpx.ReadInpxFile(inpx_file, Catalog, store)
-		}()
-		rest.NewRestService(Listen, store, Catalog).StartListen()
+        log.Printf("Opening %s to parse data\n", Catalog)
+        go func() {
+          books.ProcessALL(Catalog, store)
+        }()
+        rest.NewRestService(Listen, store, Catalog).StartListen()
 	} else if SearchLibID != "" {
 		result, err := store.FindBooksByLibID(SearchLibID)
 		if err == nil && len(result) != 0 {
-			utils.PrintJson(result)
+			utils.PrintJson(result, true)
 		} else {
 			log.Println("Nothing found")
 		}
 	} else if SearchTitle != "" {
 		result, err := store.FindBooks(models.Search{Title: SearchTitle, Author: SearchAuthor, Limit: PerPage})
 		if err == nil && len(result) != 0 {
-			utils.PrintJson(result)
+			utils.PrintJson(result, true)
 		} else {
 			log.Println("Nothing found")
 		}
 	} else if SearchAuthor != "" {
 		result, err := store.GetAuthors(SearchAuthor, Page, PerPage)
 		if err == nil {
-			utils.PrintJson(result)
+			utils.PrintJson(result, true)
 		} else {
 			log.Println("Nothing found")
 		}
 	} else if GetAuthors {
 		result, err := store.GetAuthors("", Page, PerPage)
 		if err == nil {
-			utils.PrintJson(result)
+			utils.PrintJson(result, true)
 		} else {
 			log.Println("Nothing found")
 		}
 	} else if GetBooks {
 		result, err := store.GetBooks("", Page, PerPage)
 		if err == nil {
-			utils.PrintJson(result)
+			utils.PrintJson(result, true)
 		} else {
 			log.Println("Nothing found")
 		}
 	} else if GetGenres {
 		result, err := store.GetGenres(Page, PerPage) // фильтр добавить
 		if err == nil {
-			utils.PrintJson(result)
+			utils.PrintJson(result, true)
 		} else {
 			log.Println("Nothing found")
 		}
 	} else if GetSeries {
 		result, err := store.GetSeries(Page, PerPage) // фильтр добавить
 		if err == nil {
-			utils.PrintJson(result)
+			utils.PrintJson(result, true)
 		} else {
 			log.Println("Nothing found")
 		}
 	} else if GetBooksByAuthor != 0 {
 		result, err := store.ListAuthorBooks(GetBooksByAuthor, false, Page, PerPage, models.Search{})
 		if err == nil {
-			utils.PrintJson(result)
+			utils.PrintJson(result, true)
 		} else {
 			log.Println("Nothing found")
 		}
 	} else if GetBooksByGenre != 0 {
 		result, err := store.ListGenreBooks(GetBooksByGenre, false, Page, PerPage, models.Search{})
 		if err == nil {
-			utils.PrintJson(result)
+			utils.PrintJson(result, true)
 		} else {
 			log.Println("Nothing found")
 		}
 	} else if GetBooksBySerie != 0 {
 		result, err := store.ListSerieBooks(GetBooksBySerie, false, Page, PerPage, models.Search{})
 		if err == nil {
-			utils.PrintJson(result)
+			utils.PrintJson(result, true)
 		} else {
 			log.Println("Nothing found")
 		}
 	} else if GetAuthor != 0 {
 		result, err := store.GetAuthor(GetAuthor)
 		if err == nil {
-			utils.PrintJson(result)
+			utils.PrintJson(result, true)
 		} else {
 			log.Println("Nothing found")
 		}
 	} else if GetBook != 0 {
 		result, err := store.GetBook(GetBook)
 		if err == nil {
-			utils.PrintJson(result)
+			utils.PrintJson(result, true)
 			if Save {
-				err = inpx.UnzipBookFile(Catalog, result, curDir, true)
+				err = books.UnzipBookFile(Catalog, result, curDir, true)
 				if err != nil {
 					log.Fatalln("Failed to save file", err)
 				}
@@ -231,21 +236,21 @@ func main() {
 	} else if GetGenre != 0 {
 		result, err := store.GetGenre(GetGenre)
 		if err == nil {
-			utils.PrintJson(result)
+			utils.PrintJson(result, true)
 		} else {
 			log.Println("Nothing found")
 		}
 	} else if GetSerie != 0 {
 		result, err := store.GetSerie(GetSerie)
 		if err == nil {
-			utils.PrintJson(result)
+			utils.PrintJson(result, true)
 		} else {
 			log.Println("Nothing found")
 		}
 	} else if Stat {
 		result, err := store.GetSummary()
 		if err == nil {
-			utils.PrintJson(result)
+			utils.PrintJson(result, true)
 		} else {
 			log.Println("Nothing found")
 		}
@@ -258,7 +263,7 @@ func main() {
 		devinfo.Project.Link = "bitbucket.org/enlab/mopds"
 		devinfo.Project.Created = "24.03.18 22:59"
 
-		utils.PrintJson(devinfo)
+		utils.PrintJson(devinfo, true)
 	} else {
 		rest.NewRestService(Listen, store, Catalog).StartListen()
 	}

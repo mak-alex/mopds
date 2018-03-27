@@ -3,18 +3,45 @@ package rest
 import (
 	"archive/zip"
 	"log"
+  "io/ioutil"
 	"net/http"
 	"net/url"
 	"strconv"
 	"strings"
 	"time"
+	"text/template"
 
 	"bitbucket.org/enlab/mopds/models"
 	"bitbucket.org/enlab/mopds/modules/datastore"
-	"bitbucket.org/enlab/mopds/modules/inpx"
+	"bitbucket.org/enlab/mopds/modules/books"
 	"bitbucket.org/enlab/mopds/utils"
 	"github.com/emicklei/go-restful"
+  "github.com/mattrobenolt/go-memcached"
 )
+
+
+type Cache map[string]*memcached.Item
+
+func (c Cache) Get(key string) memcached.MemcachedResponse {
+	if item, ok := c[key]; ok {
+		if item.IsExpired() {
+			delete(c, key)
+		} else {
+			return &memcached.ItemResponse{item}
+		}
+	}
+	return nil
+}
+
+func (c Cache) Set(item *memcached.Item) memcached.MemcachedResponse {
+	c[item.Key] = item
+	return nil
+}
+
+func (c Cache) Delete(key string) memcached.MemcachedResponse {
+	delete(c, key)
+	return nil
+}
 
 /*
 TODO: доработать поиск
@@ -23,6 +50,27 @@ TODO: во-вторых, рест надо такой:
 	/api/{authors,genres,series}/1?fields=[list]
 	/api/books/1/download?format=[string] // string - fb2 or epub
 */
+type IncludeLibs struct {
+    WebixCSS string
+    WebixJS string
+    LogicJS string
+}
+
+func home(req *restful.Request, resp *restful.Response) {
+	p := &IncludeLibs{
+		//WebixCSS: "./assets/js/webix/skins/contrast.css",
+		//WebixJS: "./assets/js/webix/webix.js",
+    WebixCSS: "/webix.css",
+    WebixJS: "/webix.js",
+		LogicJS: "/main.js",
+	}
+	// you might want to cache compiled templates
+	t, err := template.ParseFiles("ui/index.html")
+	if err != nil {
+		log.Fatalf("Template gave: %s", err)
+	}
+	t.Execute(resp.ResponseWriter, p)
+}
 
 type RestService struct {
 	listen    string
@@ -66,7 +114,13 @@ func (service RestService) registerAuthorResource(container *restful.Container) 
 		Path("/").
 		Consumes(restful.MIME_JSON).
 		Produces(restful.MIME_JSON)
+    //Consumes(restful.MIME_XML, restful.MIME_JSON).
+    //Produces(restful.MIME_JSON, restful.MIME_XML)
 
+	ws.Route(ws.GET("/").To(home))
+	ws.Route(ws.GET("/webix.js").To(service.IncludeWebixJS))
+	ws.Route(ws.GET("/main.js").To(service.IncludeLogicJS))
+	ws.Route(ws.GET("/webix.css").To(service.IncludeWebixCSS))
 	ws.Route(ws.GET("/about").
 		To(service.getAbout).
 		Doc("About author and project").
@@ -136,6 +190,12 @@ func (service RestService) registerAuthorResource(container *restful.Container) 
 		Doc("Get all available genres").
 		Operation("getGenres").
 		Returns(200, "OK", []models.Genre{}))
+
+	ws.Route(ws.GET("/genres/menu").
+		To(service.getGenresMenu).
+		Doc("Format genres for WebixGroupList").
+		Operation("getGenresMenu").
+		Returns(200, "OK", []models.ItemMenu{}))
 
 	ws.Route(ws.GET("/genres/{genreId}").
 		To(service.getGenre).
@@ -278,6 +338,16 @@ func (service RestService) getSeries(request *restful.Request, response *restful
 	}
 }
 
+func (service RestService) getGenresMenu(request *restful.Request, response *restful.Response) {
+	result, err := service.dataStore.GetGenresMenu()
+	if err == nil {
+		response.WriteEntity(result)
+	} else {
+		response.AddHeader("Content-Type", "text/plain")
+		response.WriteErrorString(http.StatusNotFound, "Book wasn't found\n")
+	}
+}
+
 func (service RestService) getGenres(request *restful.Request, response *restful.Response) {
 	search := models.Search{}
 	request.ReadEntity(&search)
@@ -362,7 +432,7 @@ func (service RestService) downloadBook(request *restful.Request, response *rest
 		response.AddHeader("Content-disposition", "attachment; filename*=UTF-8''"+strings.Replace(url.QueryEscape(
 			utils.ReplaceUnsupported(outName)), "+", "%20", -1))
 
-		err := inpx.UnzipBookToWriter(service.dataDir, result, response)
+		err := books.UnzipBookToWriter(service.dataDir, result, response)
 		if err != nil {
 			response.AddHeader("Content-Type", "text/plain")
 			response.WriteErrorString(http.StatusNotFound, "Book wasn't found\n")
@@ -397,7 +467,7 @@ func (service RestService) downloadBooksArchive(request *restful.Request, respon
 						// entry, err := zipWriter.Create(book.GetFullFilename())
 
 						if err == nil {
-							inpx.UnzipBookToWriter(service.dataDir, book, entry)
+							books.UnzipBookToWriter(service.dataDir, book, entry)
 						} else {
 							log.Println("Failed to compress ", book.GetFullFilename())
 						}
@@ -595,6 +665,23 @@ func (service RestService) StartListen() {
 	log.Fatal(server.ListenAndServe())
 }
 
+func (service RestService) IncludeLogicJS(request *restful.Request, response *restful.Response) {
+    data, _ := ioutil.ReadFile("ui/assets/js/mopds/main.js")
+    response.Header().Set("Content-Type", "application/javascript; charset=utf-8")
+		response.Write(data)
+}
+func (service RestService) IncludeWebixJS(request *restful.Request, response *restful.Response) {
+    data, _ := ioutil.ReadFile("ui/assets/js/webix/webix.js")
+    response.Header().Set("Content-Type", "application/javascript; charset=utf-8")
+		response.Write(data)
+}
+
+func (service RestService) IncludeWebixCSS(request *restful.Request, response *restful.Response) {
+    data, _ := ioutil.ReadFile("ui/assets/js/webix/skins/contrast.css")
+    response.Header().Set("Content-Type", "text/css; charset=utf-8")
+		response.Write(data)
+}
+
 func NewRestService(listen string, dataStore datastore.DataStorer, dataDir string) RestServer {
 	service := new(RestService)
 	service.listen = listen
@@ -616,6 +703,11 @@ func NewRestService(listen string, dataStore datastore.DataStorer, dataDir strin
 
 	service.registerBookResource(service.container)
 	service.registerAuthorResource(service.container)
+
+  go func() {
+    server := memcached.NewServer(":11211", make(Cache))
+    log.Fatal(server.ListenAndServe())
+  }()
 
 	return service
 }

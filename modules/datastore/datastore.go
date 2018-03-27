@@ -4,6 +4,7 @@ import (
 	"fmt"
 	_ "os"
 	"strings"
+  "strconv"
 
 	"bitbucket.org/enlab/mopds/models"
 	"bitbucket.org/enlab/mopds/modules/paginate"
@@ -16,8 +17,12 @@ import (
 
 // TODO: вынести повторяющееся в отдельные методы и т.д.
 const (
-	DEFAULT_PAGE_SIZE int = 25
+	DEFAULT_PAGE_SIZE int = 20
 	MAX_PAGE_SIZE     int = 1000
+  CAT_NORMAL        int = 0
+  CAT_ZIP           int = 1
+  CAT_INPX          int = 2
+  CAT_INP           int = 3
 )
 
 type dbStore struct {
@@ -41,6 +46,7 @@ func addParams(search *gorm.DB, params models.Search) *gorm.DB {
 func (store *dbStore) PutBook(book *models.Book) (err error) {
 	tx := store.db.Begin()
 
+  book.Catalog.CatType = 0
 	store.db.FirstOrCreate(&book.Catalog, book.Catalog)
 	authors := []models.Author{}
 	for _, author := range book.Authors {
@@ -65,6 +71,14 @@ func (store *dbStore) PutBook(book *models.Book) (err error) {
 		covers = append(covers, filledCover)
 	}
 	book.Covers = covers
+
+	/*annotations := []models.Annotation{}
+	for _, annotation := range book.Annotations {
+		filledAnnotation := models.Annotation{}
+		store.db.FirstOrCreate(&filledAnnotation, annotation)
+		annotations = append(annotations, filledAnnotation)
+	}
+	book.Annotations = annotations*/
 
 	store.db.Create(&book)
 
@@ -281,6 +295,32 @@ func (store *dbStore) GetSummary() (models.Summary, error) {
 	return summary, nil
 }
 
+func (store *dbStore) GetGenresMenu() ([]models.ItemMenu, error) {
+  item := []models.ItemMenu{}
+  found := make(map[string]bool)
+
+	result := []models.Genre{}
+	store.db.Select("genres.*").Table("genres").Find(&result)
+  // create first level menu
+	for i, genre := range result {
+    i++
+    if !found[genre.Section] {
+      item = append(item, models.ItemMenu{ID: strconv.Itoa(i), Value: genre.Section})
+      found[genre.Section]=true
+    }
+  }
+  // create sublevel menu
+  for j, genre := range result {
+    j++
+    for i, _ := range item {
+      if genre.Section == item[i].Value {
+        item[i].Data = append(item[i].Data, models.SubItemMenu{ID: fmt.Sprintf("%s.%s", strconv.Itoa(j), strconv.Itoa(i)), GenreID: genre.ID, Value: genre.Subsection})
+      }
+    }
+  }
+  return item, nil
+}
+
 func (store *dbStore) GetGenres(page int, per_page int) (*paginate.PaginatedList, error) {
 	count := 0
 	result := []models.Genre{}
@@ -308,7 +348,9 @@ func (store *dbStore) GetBooks(title string, page int, per_page int) (*paginate.
 	count := 0
 	result := []models.Book{}
 
-	search := store.db.Order("title")
+	search := store.db.Select("books.*").Table("books").
+		// select * from books left join bcovers on books.id=bcovers.book_id left join covers on covers.id=bcovers.book_id
+		Joins("left join bauthors on books.id=bauthors.book_id left join authors on authors.id=bauthors.author_id left join bcovers on books.id=bcovers.book_id left join covers on covers.id=bcovers.book_id left join bseries on bseries.book_id = books.id left join series on bseries.serie_id=series.id")
 	if per_page <= 0 {
 		per_page = DEFAULT_PAGE_SIZE
 	}
@@ -322,12 +364,14 @@ func (store *dbStore) GetBooks(title string, page int, per_page int) (*paginate.
 		search = search.Where("title LIKE ?", "%"+term+"%")
 	}
 
-	search.Find(&result).Count(&count)
+  store.db.Table("books").Count(&count)
 	p := paginate.NewPaginatedList(page, per_page, count)
 	search = search.Limit(p.Limit())
 	search = search.Offset(p.Offset())
-	search.Select("books.*").Table("books").Find(&result)
-	p.Items = result
+	search.Group("books.id").Select("books.*").Table("books").Find(&result)
+
+  // utils.PrintJson(result, true)
+	p.Items = store.fillBooksDetails(result, true, true, true, true)
 	return p, nil
 }
 
@@ -447,14 +491,14 @@ func (store *dbStore) UpdateBook(book *models.Book) (*models.Book, error) {
 	found := new(models.Book)
 	store.db.Select("distinct books.*").Table("books").
 		Joins("left join catalogs on catalogs.id = books.catalog_id").
-		Where("lib_id = ? and filename = ?", book.LibID, book.Catalog.CatName).
+		Where("lib_id = ? and file_name = ?", book.LibID, book.Catalog.CatName).
 		First(found)
 	book.ID = found.ID
 	book.CatalogID = found.CatalogID
 	book.Catalog = models.Catalog{}
-	if found != book {
-		store.db.Save(book)
-	}
+	// if found != book {
+		// store.db.Save(book)
+	// }
 	return book, nil
 }
 
@@ -470,6 +514,12 @@ func (store *dbStore) GetLangs() ([]string, error) {
 		result = append(result, book.Lang)
 	}
 	return result, nil
+}
+
+func (store *dbStore) IsFileExist(fileName string) bool {
+	contObj := new(models.Book)
+	store.db.Where("file_name = ?", fileName).First(&contObj)
+	return contObj.ID > 0
 }
 
 func (store *dbStore) IsCatalogExist(fileName string) bool {
