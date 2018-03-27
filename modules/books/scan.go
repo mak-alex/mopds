@@ -227,14 +227,15 @@ func processINP(files <-chan *zip.File, dataDir string, genres utils.Genres, res
 				if line != "" {
 					book, bookErr := processBOOK(line, genres, update, zipCatalog)
 					if bookErr == nil {
-            book.Catalog = models.Catalog{
-              Path:    dataDir,
-              CatName: strings.Replace(file.FileInfo().Name(), ".inp", ".zip", -1),
-              CatSize: utils.GetSizeCatalog(filepath.Join(dataDir, strings.Replace(file.FileInfo().Name(), ".inp", ".zip", -1))),
-            }
-            book.Update = update
-            books_added++
-            results <- book
+                    book.Catalog = models.Catalog{
+                      Path:    dataDir,
+                      CatName: strings.Replace(file.FileInfo().Name(), ".inp", ".zip", -1),
+                      CatSize: utils.GetSizeCatalog(filepath.Join(dataDir, strings.Replace(file.FileInfo().Name(), ".inp", ".zip", -1))),
+                    }
+                    getDescriptionAndCover(dataDir, book, genres)
+                    book.Update = update
+                    books_added++
+                    results <- book
 					} else {
 						log.Println(bookErr)
 					}
@@ -399,4 +400,32 @@ func waitAndProcessResults(done <-chan struct{}, results <-chan *models.Book, st
 			return
 		}
 	}
+}
+
+func getDescriptionAndCover(dataDir string, book *models.Book, genres utils.Genres) (error) {
+  container := book.Catalog.CatName
+  fileName := book.FileName + "." + book.Format
+  r, err := zip.OpenReader(filepath.Join(dataDir, container))
+  if err != nil {
+    log.Printf("Failed to open container %s\n", container)
+    return fmt.Errorf("Failed to open container %s", container)
+  }
+  defer r.Close()
+  for _, file := range r.File {
+    if file.FileInfo().Name() == fileName {
+      rc, err := file.Open()
+      if err != nil {
+        return err
+      }
+      defer rc.Close()
+
+      content, _ := ioutil.ReadAll(rc)
+      p, _ := fb2parse.ParseBook(content, genres, true)
+      book.Covers = p.Covers
+      book.Annotations = append(book.Annotations, models.Annotation{Value: p.Annotation})
+
+      return nil
+    }
+  }
+  return nil
 }

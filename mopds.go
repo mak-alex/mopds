@@ -139,10 +139,10 @@ func main() {
 
 	if Parse {
         log.Printf("Opening %s to parse data\n", Catalog)
-        go func() {
+        // go func() {
           books.ProcessALL(Catalog, store)
-        }()
-        rest.NewRestService(Listen, store, Catalog).StartListen()
+        // }()
+        // rest.NewRestService(Listen, store, Catalog).StartListen()
 	} else if SearchLibID != "" {
 		result, err := store.FindBooksByLibID(SearchLibID)
 		if err == nil && len(result) != 0 {
