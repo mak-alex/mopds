@@ -1,16 +1,16 @@
 package utils
 
 import (
-  "os"
+	"bitbucket.org/enlab/mopds/modules/prettyjson"
 	"encoding/json"
 	"fmt"
 	"log"
+	"os"
 	"regexp"
 	"strconv"
 	"strings"
 	"unicode"
 	"unicode/utf8"
-	"bitbucket.org/enlab/mopds/modules/prettyjson"
 )
 
 const (
@@ -82,46 +82,46 @@ func PrintJson(object interface{}, color bool) {
 }
 
 func GetLangCode(s string) int {
-  langcode := 9
-  LangCodes := map[int]string{
-    1: "АБВГДЕЁЖЗИЙКЛМНОПРСТУФХЦЧШЩЬЫЪЭЮЯабвгдеёжзийклмнопрстуфхцчшщьыъэюя",
-    2: "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz",
-    3: "0123456789",
-  }
+	langcode := 9
+	LangCodes := map[int]string{
+		1: "АБВГДЕЁЖЗИЙКЛМНОПРСТУФХЦЧШЩЬЫЪЭЮЯабвгдеёжзийклмнопрстуфхцчшщьыъэюя",
+		2: "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz",
+		3: "0123456789",
+	}
 
-  for i := range LangCodes {
-    for pos, c := range s {
-      if pos == 0 {
-        if strings.ContainsRune(LangCodes[i], c) {
-          langcode = i
-        }
-      }
-    }
-  }
-  return langcode
+	for i := range LangCodes {
+		for pos, c := range s {
+			if pos == 0 {
+				if strings.ContainsRune(LangCodes[i], c) {
+					langcode = i
+				}
+			}
+		}
+	}
+	return langcode
 }
 
 type Genres []struct {
-  Genre      string `json:"genre"`
-  Section    string `json:"section"`
-  Subsection string `json:"subsection"`
+	Genre      string `json:"genre"`
+	Section    string `json:"section"`
+	Subsection string `json:"subsection"`
 }
 
 type Genre struct {
-  Genre      string `json:"genre"`
-  Section    string `json:"section"`
-  Subsection string `json:"subsection"`
+	Genre      string `json:"genre"`
+	Section    string `json:"section"`
+	Subsection string `json:"subsection"`
 }
 
 func LoadGenres(file string) (Genres, error) {
-  var genres Genres
-  genresFile, err := os.Open(file)
-  if err != nil {
-    log.Fatal(err.Error())
-  }
-  defer genresFile.Close()
-  jsonParser := json.NewDecoder(genresFile)
-  jsonParser.Decode(&genres)
+	var genres Genres
+	genresFile, err := os.Open(file)
+	if err != nil {
+		log.Fatal(err.Error())
+	}
+	defer genresFile.Close()
+	jsonParser := json.NewDecoder(genresFile)
+	jsonParser.Decode(&genres)
 
 	return genres, nil
 }
@@ -148,14 +148,14 @@ func GetSizeCatalog(catalog string) int64 {
 }
 
 func GetSizeFile(s string) int {
-  fi, e := os.Stat(s);
-  if e != nil {
-    log.Fatal(e)
-  }
-  // get the size
-  size := int(fi.Size())
+	fi, e := os.Stat(s)
+	if e != nil {
+		log.Fatal(e)
+	}
+	// get the size
+	size := int(fi.Size())
 
-  return size
+	return size
 }
 
 func TrimSlice(in []string) []string {
@@ -164,4 +164,3 @@ func TrimSlice(in []string) []string {
 	}
 	return in
 }
-

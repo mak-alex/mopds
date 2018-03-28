@@ -5,13 +5,12 @@ import (
 	"fmt"
 	"io/ioutil"
 	"log"
-    "os"
+	"os"
 	"path/filepath"
 
 	"bitbucket.org/enlab/mopds/models"
+	"bitbucket.org/enlab/mopds/modules/books"
 	"bitbucket.org/enlab/mopds/modules/datastore"
-	// "bitbucket.org/enlab/mopds/modules/inpx"
-    "bitbucket.org/enlab/mopds/modules/books"
 	"bitbucket.org/enlab/mopds/modules/rest"
 	"bitbucket.org/enlab/mopds/utils"
 	"github.com/namsral/flag"
@@ -55,42 +54,44 @@ func setDatabaseConfig(Catalog string, username string, password string, host st
 }
 
 func main() {
-    curDir, _ := filepath.Abs(filepath.Dir(os.Args[0]))
+	curDir, _ := filepath.Abs(filepath.Dir(os.Args[0]))
 	var (
-		config           string
-		Catalog          string
-		Page             int
-		PerPage          int
-		GetAuthor        uint
-		GetBook          uint
-		GetGenre         uint
-		GetSerie         uint
-		GetAuthors       bool
-		GetBooks         bool
-		GetGenres        bool
-		GetSeries        bool
-		GetBooksByAuthor uint
-		GetBooksByGenre  uint
-		GetBooksBySerie  uint
-		SearchAuthor     string
-		SearchBook       string
-		SearchGenre      string
-		SearchSerie      string
-		Stat             bool
-		Listen           string
-		Parse            bool
-		Save             bool
-		SearchLibID      string
-		SearchTitle      string
-		Verbose          bool
-		About            bool
-		Host             string
-		Username         string
-		Password         string
-		DBName           string
-		DBType           string
-		DBLog            bool
-		SSLMode          string
+		config            string
+		Catalog           string
+		Page              int
+		PerPage           int
+		GetAuthor         uint
+		GetBook           uint
+		GetGenre          uint
+		GetSerie          uint
+		GetAuthors        bool
+		GetBooks          bool
+		GetGenres         bool
+		GetSeries         bool
+		GetBooksByAuthor  uint
+		GetBooksByGenre   uint
+		GetBooksBySerie   uint
+		SearchAuthor      string
+		SearchGenre       string
+		SearchSerie       string
+		Random            bool
+		Stat              bool
+		Listen            string
+		Scan              bool
+		Parse             bool
+		Save              bool
+		SearchLibID       string
+		SearchBookByTitle string
+		Verbose           bool
+		Debug             bool
+		About             bool
+		Host              string
+		Username          string
+		Password          string
+		DBName            string
+		DBType            string
+		DBLog             bool
+		SSLMode           string
 	)
 
 	flag.StringVar(&config, "config", "./conf/mopds.conf", "Default configuration file")
@@ -109,16 +110,18 @@ func main() {
 	flag.UintVar(&GetBooksByGenre, "get_books_by_genre", 0, "List all genre's books by id")
 	flag.UintVar(&GetBooksBySerie, "get_books_by_serie", 0, "List all serie's books by id")
 	flag.StringVar(&SearchAuthor, "search_author", "", "Search authors, or books by author if comes with search-title")
-	flag.StringVar(&SearchBook, "search_book", "", "Search book by title or filename")
 	flag.StringVar(&SearchGenre, "search_genre", "", "Search genre by genre name or section, or subsection")
 	flag.StringVar(&SearchSerie, "search_serie", "", "Search serie by serie name")
+	flag.BoolVar(&Random, "random", false, "Random for -get_books/-get_books_by_genre/-get_books_by_author/-get_books_by_serie)")
 	flag.BoolVar(&Stat, "stat", false, "Book library statistics")
 	flag.StringVar(&Listen, "listen", ":8000", "Set server listen address:port")
-	flag.BoolVar(&Parse, "parse", false, "Parse inpx to the local database")
+	flag.BoolVar(&Scan, "scan", false, "Start scanning books")
+	flag.BoolVar(&Parse, "inpx", true, "Parse inpx to the local database. If not used, mopds continue work to zip archives and *.fb2 files")
 	flag.BoolVar(&Save, "save", false, "Save book file to the disk (ex.: --get_book 1 --save)")
 	flag.StringVar(&SearchLibID, "search_lib_id", "", "Search book(s) by its libId")
-	flag.StringVar(&SearchTitle, "search_title", "", "Search books by their title")
+	flag.StringVar(&SearchBookByTitle, "search_book", "", "Search books by their title")
 	flag.BoolVar(&Verbose, "verbose", false, "Verbose output")
+	flag.BoolVar(&Debug, "debug", false, "Debug output")
 	flag.BoolVar(&About, "about", false, "About author and this project")
 	flag.StringVar(&Host, "host", "modps", "IP address for connect to database")
 	flag.StringVar(&Username, "username", "mopds", "Username for connect to database")
@@ -129,7 +132,7 @@ func main() {
 
 	flag.Parse()
 
-	DBLog = Verbose
+	DBLog = Debug
 	conf := setDatabaseConfig(Catalog, Username, Password, Host, DBName, DBType, DBLog, SSLMode)
 	store, err := datastore.NewDBStore(conf)
 	if err != nil {
@@ -137,12 +140,12 @@ func main() {
 	}
 	defer store.Close()
 
-	if Parse {
-        log.Printf("Opening %s to parse data\n", Catalog)
-        // go func() {
-          books.ProcessALL(Catalog, store)
-        // }()
-        // rest.NewRestService(Listen, store, Catalog).StartListen()
+	if Scan {
+		log.Printf("Opening %s to parse data\n", Catalog)
+		go func() {
+			books.ProcessALL(Catalog, Parse, store)
+		}()
+		rest.NewRestService(Listen, store, Catalog).StartListen()
 	} else if SearchLibID != "" {
 		result, err := store.GetBooksByLibID(SearchLibID, true, Page, PerPage)
 		if err == nil {
@@ -150,8 +153,8 @@ func main() {
 		} else {
 			log.Println("Nothing found")
 		}
-	} else if SearchTitle != "" {
-		result, err := store.GetBooksBySerie(SearchTitle, SearchAuthor, true, Page, PerPage)
+	} else if SearchBookByTitle != "" {
+		result, err := store.GetBooksBySerie(SearchBookByTitle, SearchAuthor, true, Page, PerPage)
 		if err == nil {
 			utils.PrintJson(result, true)
 		} else {
@@ -172,7 +175,7 @@ func main() {
 			log.Println("Nothing found")
 		}
 	} else if GetBooks {
-		result, err := store.GetBooks("", false, false, Page, PerPage)
+		result, err := store.GetBooks("", true, Random, Page, PerPage)
 		if err == nil {
 			utils.PrintJson(result, true)
 		} else {
@@ -193,21 +196,21 @@ func main() {
 			log.Println("Nothing found")
 		}
 	} else if GetBooksByAuthor != 0 {
-		result, err := store.GetBooksByAuthorID(GetBooksByAuthor, false, Page, PerPage, models.Search{})
+		result, err := store.GetBooksByAuthorID(GetBooksByAuthor, true, Random, Page, PerPage, models.Search{})
 		if err == nil {
 			utils.PrintJson(result, true)
 		} else {
 			log.Println("Nothing found")
 		}
 	} else if GetBooksByGenre != 0 {
-		result, err := store.GetBooksByGenreID(GetBooksByGenre, false, Page, PerPage, models.Search{})
+		result, err := store.GetBooksByGenreID(GetBooksByGenre, true, Random, Page, PerPage, models.Search{})
 		if err == nil {
 			utils.PrintJson(result, true)
 		} else {
 			log.Println("Nothing found")
 		}
 	} else if GetBooksBySerie != 0 {
-		result, err := store.GetBooksBySerieID(GetBooksBySerie, false, Page, PerPage, models.Search{})
+		result, err := store.GetBooksBySerieID(GetBooksBySerie, true, Random, Page, PerPage, models.Search{})
 		if err == nil {
 			utils.PrintJson(result, true)
 		} else {

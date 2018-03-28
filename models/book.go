@@ -9,7 +9,7 @@ import (
 var re = regexp.MustCompile(`^[\s\,]*(.*?)[\,\s]*$`)
 
 type Book struct {
-  ID          uint         `json:"id" gorm:"primary_key"`
+	ID          uint         `json:"id" gorm:"primary_key"`
 	CatalogID   uint         `json:"-"`
 	FileName    string       `json:"filename" gorm:"unique_index"`
 	Path        string       `json:"path"`

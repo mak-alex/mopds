@@ -243,19 +243,19 @@ mak@denied ~ $ http POST :8000/api/v1/series/search title="Ген Химеры"
 ```
 #### Get random books by author id
 ```bash
-mak@denied ~ $ http GET :8000/api/v1/authors/1/books/random?no-details=true
+mak@denied ~ $ http GET :8000/api/v1/authors/1/books?random=true&no-details=true
 ```
 #### Get random books
 ```bash
-mak@denied ~ $ http GET :8000/api/v1/books/random?no-details=true
+mak@denied ~ $ http GET :8000/api/v1/books?random=true&no-details=true
 ```
 #### Get random books by genre id
 ```bash
-mak@denied ~ $ http GET :8000/api/v1/genres/1/books/random?no-details=true
+mak@denied ~ $ http GET :8000/api/v1/genres/1/books?random=true&no-details=true
 ```
 #### Get random books by serie id
 ```bash
-mak@denied ~ $ http GET :8000/api/v1/series/1/books/random?no-details=true
+mak@denied ~ $ http GET :8000/api/v1/series/1/books?random=true&no-details=true
 ```
 
 ### Dependencies

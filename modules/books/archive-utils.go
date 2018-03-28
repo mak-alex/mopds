@@ -12,41 +12,41 @@ import (
 
 // TODO: доработать!!!
 func UnzipBookToWriter(dataDir string, book *models.Book, writer io.Writer) (err error) {
-  container := book.Catalog.CatName
-  catalog_path := book.Catalog.Path
-  cat_ext := filepath.Ext(container)
-  fileName := book.FileName + book.Format
+	container := book.Catalog.CatName
+	catalog_path := book.Catalog.Path
+	cat_ext := filepath.Ext(container)
+	fileName := book.FileName + book.Format
 
-  fmt.Println(cat_ext)
-  if cat_ext == ".zip" {
-    r, err := zip.OpenReader(filepath.Join(catalog_path, container))
-    if err != nil {
-      log.Printf("Failed to open container %s/%s\n", catalog_path, fileName)
-      return fmt.Errorf("Failed to open container %s/%s", catalog_path, fileName)
-    }
-    defer r.Close()
-    for _, file := range r.File {
-      if file.FileInfo().Name() == fileName {
-        rc, err := file.Open()
-        if err != nil {
-          return err
-        }
-        defer rc.Close()
+	fmt.Println(cat_ext)
+	if cat_ext == ".zip" {
+		r, err := zip.OpenReader(filepath.Join(catalog_path, container))
+		if err != nil {
+			log.Printf("Failed to open container %s/%s\n", catalog_path, fileName)
+			return fmt.Errorf("Failed to open container %s/%s", catalog_path, fileName)
+		}
+		defer r.Close()
+		for _, file := range r.File {
+			if file.FileInfo().Name() == fileName {
+				rc, err := file.Open()
+				if err != nil {
+					return err
+				}
+				defer rc.Close()
 
-        _, err = io.Copy(writer, rc)
+				_, err = io.Copy(writer, rc)
 
-        break
-      }
-    }
-  } else if cat_ext == ".fb2" {
-    rc, err := os.Open(filepath.Join(catalog_path, container))
-    if err != nil {
-      return err
-    }
-    defer rc.Close()
+				break
+			}
+		}
+	} else if cat_ext == ".fb2" {
+		rc, err := os.Open(filepath.Join(catalog_path, container))
+		if err != nil {
+			return err
+		}
+		defer rc.Close()
 
-    _, err = io.Copy(writer, rc)
-  }
+		_, err = io.Copy(writer, rc)
+	}
 	return err
 }
 

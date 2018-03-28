@@ -1,33 +1,33 @@
 package fb2parse
 
 import (
-  "os"
-  "fmt"
-  "bytes"
-  "strings"
-  "net/http"
-  "encoding/xml"
-  xs "github.com/huandu/xstrings"
-  "golang.org/x/net/html/charset"
-  "bitbucket.org/enlab/mopds/utils"
-  "bitbucket.org/enlab/mopds/models"
+	"bitbucket.org/enlab/mopds/models"
+	"bitbucket.org/enlab/mopds/utils"
+	"bytes"
+	"encoding/xml"
+	"fmt"
+	xs "github.com/huandu/xstrings"
+	"golang.org/x/net/html/charset"
+	"net/http"
+	"os"
+	"strings"
 )
 
 type BookInfo struct {
-  FirstName string
-  LastName  string
-  Authors   []models.Author
-  Title     string
-  Sequence  string
-  SerNo     string
-  DocDate   string
-  Language  string
-  Genres    utils.Genres
-  Annotation string
-  Covers     []models.Cover
-  FileSize  int
-  CoverID   string
-  CoverContentType string
+	FirstName        string
+	LastName         string
+	Authors          []models.Author
+	Title            string
+	Sequence         string
+	SerNo            string
+	DocDate          string
+	Language         string
+	Genres           utils.Genres
+	Annotation       string
+	Covers           []models.Cover
+	FileSize         int
+	CoverID          string
+	CoverContentType string
 }
 
 /*
@@ -60,7 +60,7 @@ func isInBookInfo(path []string) bool {
 
 	return path[0] == "FictionBook" &&
 		path[1] == "description" &&
-    path[2] == "title-info"
+		path[2] == "title-info"
 }
 
 func isInBookContent(path []string) bool {
@@ -101,8 +101,8 @@ func ParseBook(file []byte, genres utils.Genres, parseBody bool) (BookInfo, []st
 
 	var decoder *xml.Decoder
 	reader := bytes.NewReader(file)
-  decoder = xml.NewDecoder(reader)
-  decoder.CharsetReader = charset.NewReaderLabel
+	decoder = xml.NewDecoder(reader)
+	decoder.CharsetReader = charset.NewReaderLabel
 
 	var currLine string
 	for {
@@ -137,18 +137,18 @@ func ParseBook(file []byte, genres utils.Genres, parseBody bool) (BookInfo, []st
 					if se.Attr[i].Name.Local == "name" {
 						binfo.Sequence = se.Attr[i].Value
 					}
-          if se.Attr[i].Name.Local == "number" {
-            binfo.SerNo = se.Attr[i].Value
-          }
+					if se.Attr[i].Name.Local == "number" {
+						binfo.SerNo = se.Attr[i].Value
+					}
 				}
 			} else if se.Name.Local == "binary" {
 				for i := 0; i < len(se.Attr); i++ {
-          if se.Attr[i].Name.Local == "id" {
-            binfo.CoverID = se.Attr[i].Value
-          }
-          if se.Attr[i].Name.Local == "content-type" {
-            binfo.CoverContentType = se.Attr[i].Value
-          }
+					if se.Attr[i].Name.Local == "id" {
+						binfo.CoverID = se.Attr[i].Value
+					}
+					if se.Attr[i].Name.Local == "content-type" {
+						binfo.CoverContentType = se.Attr[i].Value
+					}
 				}
 			} else {
 				if se.Name.Local == "text-author" && isInside(tags, "epigraph") {
@@ -165,7 +165,7 @@ func ParseBook(file []byte, genres utils.Genres, parseBody bool) (BookInfo, []st
 					}
 				} else {
 					currLine = ""
-			 	}
+				}
 			}
 			tags = append(tags, se.Name.Local)
 		case xml.EndElement:
@@ -179,21 +179,21 @@ func ParseBook(file []byte, genres utils.Genres, parseBody bool) (BookInfo, []st
 				} else if se.Name.Local == "first-name" && isInside(tags, "author") {
 					binfo.FirstName = currLine
 				} else if se.Name.Local == "last-name" && isInside(tags, "author") {
-          a := fmt.Sprintf("%s %s", binfo.FirstName, currLine)
-          binfo.Authors = append(binfo.Authors, models.Author{FullName: a, SearchFullName: strings.ToUpper(a) })
+					a := fmt.Sprintf("%s %s", binfo.FirstName, currLine)
+					binfo.Authors = append(binfo.Authors, models.Author{FullName: a, SearchFullName: strings.ToUpper(a)})
 				}
-        if se.Name.Local == "book-title" {
+				if se.Name.Local == "book-title" {
 					binfo.Title = currLine
 				} else if se.Name.Local == "lang" {
 					binfo.Language = currLine
 				} else if se.Name.Local == "annotation" {
 					binfo.Annotation = currLine
-        }
+				}
 			} else if se.Name.Local == "binary" {
-        if len(binfo.Covers) == 0 {
-          binfo.Covers = append(binfo.Covers, models.Cover{Name: binfo.CoverID, Value: currLine, ContentType: binfo.CoverContentType})
-        }
-      } else if isInBookContent(tags) {
+				if len(binfo.Covers) == 0 {
+					binfo.Covers = append(binfo.Covers, models.Cover{Name: binfo.CoverID, Value: currLine, ContentType: binfo.CoverContentType})
+				}
+			} else if isInBookContent(tags) {
 				if se.Name.Local == "body" {
 					return binfo, lines
 				} else if se.Name.Local == "emphasis" || se.Name.Local == "strong" {

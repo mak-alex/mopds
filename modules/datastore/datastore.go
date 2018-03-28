@@ -3,8 +3,8 @@ package datastore
 import (
 	"fmt"
 	_ "os"
+	"strconv"
 	"strings"
-  "strconv"
 
 	"bitbucket.org/enlab/mopds/models"
 	"bitbucket.org/enlab/mopds/modules/paginate"
@@ -19,10 +19,10 @@ import (
 const (
 	DEFAULT_PAGE_SIZE int = 20
 	MAX_PAGE_SIZE     int = 1000
-  CAT_NORMAL        int = 0
-  CAT_ZIP           int = 1
-  CAT_INPX          int = 2
-  CAT_INP           int = 3
+	CAT_NORMAL        int = 0
+	CAT_ZIP           int = 1
+	CAT_INPX          int = 2
+	CAT_INP           int = 3
 )
 
 type dbStore struct {
@@ -46,7 +46,7 @@ func addParams(search *gorm.DB, params models.Search) *gorm.DB {
 func (store *dbStore) PutBook(book *models.Book) (err error) {
 	tx := store.db.Begin()
 
-  book.Catalog.CatType = 0
+	book.Catalog.CatType = 0
 	store.db.FirstOrCreate(&book.Catalog, book.Catalog)
 	authors := []models.Author{}
 	for _, author := range book.Authors {
@@ -133,18 +133,18 @@ func (store *dbStore) GetRandomBooksByAuthorID(authorID uint, noDetails bool, pa
 	if page == 0 {
 		page = 1
 	}
-  search.Count(&count)
+	search.Count(&count)
 	p := paginate.NewPaginatedList(page, per_page, count)
 	search = search.Limit(p.Limit())
 	search = search.Offset(p.Offset())
 	search.Preload("Catalog").Order("RANDOM()").Find(&result)
 
 	//p.Items = result
-  if !noDetails {
-    p.Items = store.fillBooksDetails(result, true, true, true, true)
-  } else {
-    p.Items = store.fillBooksDetails(result, false, false, false, false)
-  }
+	if !noDetails {
+		p.Items = store.fillBooksDetails(result, true, true, true, true)
+	} else {
+		p.Items = store.fillBooksDetails(result, false, false, false, false)
+	}
 
 	return p, nil
 }
@@ -168,18 +168,18 @@ func (store *dbStore) GetRandomBooksByGenreID(genreID uint, noDetails bool, page
 	if page == 0 {
 		page = 1
 	}
-  search.Count(&count)
+	search.Count(&count)
 	p := paginate.NewPaginatedList(page, per_page, count)
 	search = search.Limit(p.Limit())
 	search = search.Offset(p.Offset())
 	search.Preload("Catalog").Order("RANDOM()").Find(&result)
 
 	//p.Items = result
-  if !noDetails {
-    p.Items = store.fillBooksDetails(result, true, true, true, true)
-  } else {
-    p.Items = store.fillBooksDetails(result, false, false, false, false)
-  }
+	if !noDetails {
+		p.Items = store.fillBooksDetails(result, true, true, true, true)
+	} else {
+		p.Items = store.fillBooksDetails(result, false, false, false, false)
+	}
 
 	return p, nil
 }
@@ -203,18 +203,18 @@ func (store *dbStore) GetRandomBooksBySerieID(serieID uint, noDetails bool, page
 	if page == 0 {
 		page = 1
 	}
-  search.Count(&count)
+	search.Count(&count)
 	p := paginate.NewPaginatedList(page, per_page, count)
 	search = search.Limit(p.Limit())
 	search = search.Offset(p.Offset())
 	search.Preload("Catalog").Order("RANDOM()").Find(&result)
 
 	//p.Items = result
-  if !noDetails {
-    p.Items = store.fillBooksDetails(result, true, true, true, true)
-  } else {
-    p.Items = store.fillBooksDetails(result, false, false, false, false)
-  }
+	if !noDetails {
+		p.Items = store.fillBooksDetails(result, true, true, true, true)
+	} else {
+		p.Items = store.fillBooksDetails(result, false, false, false, false)
+	}
 
 	return p, nil
 }
@@ -243,18 +243,18 @@ func (store *dbStore) GetBooksBySerie(title string, series string, noDetails boo
 	if page == 0 {
 		page = 1
 	}
-  search.Count(&count)
+	search.Count(&count)
 	p := paginate.NewPaginatedList(page, per_page, count)
 	search = search.Limit(p.Limit())
 	search = search.Offset(p.Offset())
 	search.Preload("Catalog").Order("ser_no, title").Find(&result)
 
 	//p.Items = result
-  if !noDetails {
-    p.Items = store.fillBooksDetails(result, true, true, true, true)
-  } else {
-    p.Items = store.fillBooksDetails(result, false, false, false, false)
-  }
+	if !noDetails {
+		p.Items = store.fillBooksDetails(result, true, true, true, true)
+	} else {
+		p.Items = store.fillBooksDetails(result, false, false, false, false)
+	}
 
 	return p, nil
 }
@@ -262,7 +262,7 @@ func (store *dbStore) GetBooksBySerie(title string, series string, noDetails boo
 func (store *dbStore) GetBooksByLibID(libID string, noDetails bool, page int, per_page int) (*paginate.PaginatedList, error) {
 	count := 0
 	result := []models.Book{}
-  search := store.db.Select("books.*").Table("books")
+	search := store.db.Select("books.*").Table("books")
 	search = search.Where("lib_id = ?", libID)
 
 	if per_page <= 0 {
@@ -275,16 +275,16 @@ func (store *dbStore) GetBooksByLibID(libID string, noDetails bool, page int, pe
 		page = 1
 	}
 
-  search.Count(&count)
+	search.Count(&count)
 	p := paginate.NewPaginatedList(page, per_page, count)
 	search = search.Limit(p.Limit())
 	search = search.Offset(p.Offset())
 	search.Find(&result)
-  if !noDetails {
-    p.Items = store.fillBooksDetails(result, true, true, true, true)
-  } else {
-    p.Items = store.fillBooksDetails(result, false, false, false, false)
-  }
+	if !noDetails {
+		p.Items = store.fillBooksDetails(result, true, true, true, true)
+	} else {
+		p.Items = store.fillBooksDetails(result, false, false, false, false)
+	}
 	return p, nil
 }
 
@@ -305,7 +305,7 @@ func (store *dbStore) GetAuthors(author string, page int, per_page int) (*pagina
 		page = 1
 	}
 
-  search.Count(&count)
+	search.Count(&count)
 	p := paginate.NewPaginatedList(page, per_page, count)
 	search = search.Order("full_name")
 	search = search.Limit(p.Limit())
@@ -360,9 +360,9 @@ func (store *dbStore) GetSeries(serie string, page int, per_page int) (*paginate
 	result := []models.Serie{}
 
 	search := store.db.Select("series*").Table("series")
-  for _, term := range utils.SplitBySeparators(strings.ToLower(serie)) {
+	for _, term := range utils.SplitBySeparators(strings.ToLower(serie)) {
 		search = search.Where("LOWER(ser) LIKE ?", "%"+term+"%")
-  }
+	}
 	if per_page <= 0 {
 		per_page = DEFAULT_PAGE_SIZE
 	}
@@ -372,7 +372,7 @@ func (store *dbStore) GetSeries(serie string, page int, per_page int) (*paginate
 	if page == 0 {
 		page = 1
 	}
-  search.Count(&count)
+	search.Count(&count)
 	p := paginate.NewPaginatedList(page, per_page, count)
 	search = search.Limit(p.Limit())
 	search = search.Offset(p.Offset())
@@ -406,38 +406,38 @@ func (store *dbStore) GetSummary() (models.Summary, error) {
 }
 
 func (store *dbStore) GetGenresMenu() ([]models.ItemMenu, error) {
-  item := []models.ItemMenu{}
-  found := make(map[string]bool)
+	item := []models.ItemMenu{}
+	found := make(map[string]bool)
 
 	result := []models.Genre{}
 	store.db.Select("genres.*").Table("genres").Find(&result)
-  // create first level menu
+	// create first level menu
 	for i, genre := range result {
-    i++
-    if !found[genre.Section] {
-      item = append(item, models.ItemMenu{ID: strconv.Itoa(i), Value: genre.Section})
-      found[genre.Section]=true
-    }
-  }
-  // create sublevel menu
-  for j, genre := range result {
-    j++
-    for i, _ := range item {
-      if genre.Section == item[i].Value {
-        item[i].Data = append(item[i].Data, models.SubItemMenu{ID: fmt.Sprintf("%s.%s", strconv.Itoa(j), strconv.Itoa(i)), GenreID: genre.ID, Value: genre.Subsection})
-      }
-    }
-  }
-  return item, nil
+		i++
+		if !found[genre.Section] {
+			item = append(item, models.ItemMenu{ID: strconv.Itoa(i), Value: genre.Section})
+			found[genre.Section] = true
+		}
+	}
+	// create sublevel menu
+	for j, genre := range result {
+		j++
+		for i, _ := range item {
+			if genre.Section == item[i].Value {
+				item[i].Data = append(item[i].Data, models.SubItemMenu{ID: fmt.Sprintf("%s.%s", strconv.Itoa(j), strconv.Itoa(i)), GenreID: genre.ID, Value: genre.Subsection})
+			}
+		}
+	}
+	return item, nil
 }
 
 func (store *dbStore) GetGenres(genre string, page int, per_page int) (*paginate.PaginatedList, error) {
 	count := 0
 	result := []models.Genre{}
-  search := store.db.Select("genres.*").Table("genres")
-  for _, term := range utils.SplitBySeparators(strings.ToLower(genre)) {
+	search := store.db.Select("genres.*").Table("genres")
+	for _, term := range utils.SplitBySeparators(strings.ToLower(genre)) {
 		search = search.Where("LOWER(genre) LIKE ? OR LOWER(section) LIKE ? OR LOWER(subsection) LIKE ?", "%"+term+"%", "%"+term+"%", "%"+term+"%")
-  }
+	}
 	if per_page <= 0 {
 		per_page = DEFAULT_PAGE_SIZE
 	}
@@ -448,7 +448,7 @@ func (store *dbStore) GetGenres(genre string, page int, per_page int) (*paginate
 		page = 1
 	}
 
-  search.Count(&count)
+	search.Count(&count)
 
 	p := paginate.NewPaginatedList(page, per_page, count)
 	search = search.Limit(p.Limit())
@@ -465,9 +465,9 @@ func (store *dbStore) GetBooks(title string, noDetails bool, random bool, page i
 	search := store.db.Select("books.*").Table("books").
 		// select * from books left join bcovers on books.id=bcovers.book_id left join covers on covers.id=bcovers.book_id
 		Joins("left join bauthors on books.id=bauthors.book_id left join authors on authors.id=bauthors.author_id left join bcovers on books.id=bcovers.book_id left join covers on covers.id=bcovers.book_id left join bseries on bseries.book_id = books.id left join series on bseries.serie_id=series.id")
-  for _, term := range utils.SplitBySeparators(strings.ToLower(title)) {
+	for _, term := range utils.SplitBySeparators(strings.ToLower(title)) {
 		search = search.Where("LOWER(title) LIKE ?", "%"+term+"%")
-  }
+	}
 	if per_page <= 0 {
 		per_page = DEFAULT_PAGE_SIZE
 	}
@@ -481,26 +481,26 @@ func (store *dbStore) GetBooks(title string, noDetails bool, random bool, page i
 		search = search.Where("LOWER(title) LIKE ?", "%"+term+"%")
 	}
 
-  search.Count(&count)
+	search.Count(&count)
 	p := paginate.NewPaginatedList(page, per_page, count)
 	search = search.Limit(p.Limit())
 	search = search.Offset(p.Offset())
-  if random {
-    search.Group("books.id").Select("books.*").Table("books").Order("RANDOM()").Find(&result)
-  } else {
-    search.Group("books.id").Select("books.*").Table("books").Find(&result)
-  }
+	if random {
+		search.Group("books.id").Select("books.*").Table("books").Order("RANDOM()").Find(&result)
+	} else {
+		search.Group("books.id").Select("books.*").Table("books").Find(&result)
+	}
 
-  // utils.PrintJson(result, true)
-  if !noDetails {
-    p.Items = store.fillBooksDetails(result, true, true, true, true)
-  } else {
-    p.Items = store.fillBooksDetails(result, false, false, false, false)
-  }
+	// utils.PrintJson(result, true)
+	if !noDetails {
+		p.Items = store.fillBooksDetails(result, true, true, true, true)
+	} else {
+		p.Items = store.fillBooksDetails(result, false, false, false, false)
+	}
 	return p, nil
 }
 
-func (store *dbStore) GetBooksByGenreID(genreID uint, noDetails bool, page int, per_page int, params models.Search) (*paginate.PaginatedList, error) {
+func (store *dbStore) GetBooksByGenreID(genreID uint, noDetails bool, random bool, page int, per_page int, params models.Search) (*paginate.PaginatedList, error) {
 	count := 0
 	result := []models.Book{}
 	search := store.db.Select("books.*").Table("books").
@@ -525,19 +525,23 @@ func (store *dbStore) GetBooksByGenreID(genreID uint, noDetails bool, page int, 
 	p := paginate.NewPaginatedList(page, per_page, count)
 	search = search.Limit(p.Limit())
 	search = search.Offset(p.Offset())
-	search.Preload("Catalog").Find(&result)
+	if random {
+		search.Preload("Catalog").Order("RANDOM()").Find(&result)
+	} else {
+		search.Preload("Catalog").Find(&result)
+	}
 
-  if !noDetails {
-    //p.Items = store.fillBooksDetails(result, false, false, false, false)
-    p.Items = store.fillBooksDetails(result, true, true, true, true)
-  } else {
-    p.Items = store.fillBooksDetails(result, false, false, false, false)
-  }
+	if !noDetails {
+		//p.Items = store.fillBooksDetails(result, false, false, false, false)
+		p.Items = store.fillBooksDetails(result, true, true, true, true)
+	} else {
+		p.Items = store.fillBooksDetails(result, false, false, false, false)
+	}
 	p.Items = result
 	return p, nil
 }
 
-func (store *dbStore) GetBooksBySerieID(serieID uint, noDetails bool, page int, per_page int, params models.Search) (*paginate.PaginatedList, error) {
+func (store *dbStore) GetBooksBySerieID(serieID uint, noDetails bool, random bool, page int, per_page int, params models.Search) (*paginate.PaginatedList, error) {
 	count := 0
 	result := []models.Book{}
 	search := store.db.Select("books.*").Table("books").
@@ -562,19 +566,23 @@ func (store *dbStore) GetBooksBySerieID(serieID uint, noDetails bool, page int, 
 	p := paginate.NewPaginatedList(page, per_page, count)
 	search = search.Limit(p.Limit())
 	search = search.Offset(p.Offset())
-	search.Preload("Catalog").Find(&result)
+	if random {
+		search.Preload("Catalog").Order("RANDOM()").Find(&result)
+	} else {
+		search.Preload("Catalog").Find(&result)
+	}
 
-  if !noDetails {
-    //p.Items = store.fillBooksDetails(result, false, false, false, false)
-    p.Items = store.fillBooksDetails(result, true, true, true, true)
-  } else {
-    p.Items = store.fillBooksDetails(result, false, false, false, false)
-  }
+	if !noDetails {
+		//p.Items = store.fillBooksDetails(result, false, false, false, false)
+		p.Items = store.fillBooksDetails(result, true, true, true, true)
+	} else {
+		p.Items = store.fillBooksDetails(result, false, false, false, false)
+	}
 	p.Items = result
 	return p, nil
 }
 
-func (store *dbStore) GetBooksByAuthorID(authorID uint, noDetails bool, page int, per_page int, params models.Search) (*paginate.PaginatedList, error) {
+func (store *dbStore) GetBooksByAuthorID(authorID uint, noDetails bool, random bool, page int, per_page int, params models.Search) (*paginate.PaginatedList, error) {
 	count := 0
 	result := []models.Book{}
 	search := store.db.Select("books.*").Table("books").
@@ -599,14 +607,18 @@ func (store *dbStore) GetBooksByAuthorID(authorID uint, noDetails bool, page int
 	p := paginate.NewPaginatedList(page, per_page, count)
 	search = search.Limit(p.Limit())
 	search = search.Offset(p.Offset())
-	search.Preload("Catalog").Find(&result)
+	if random {
+		search.Preload("Catalog").Order("RANDOM()").Find(&result)
+	} else {
+		search.Preload("Catalog").Find(&result)
+	}
 
-  if !noDetails {
-    //p.Items = store.fillBooksDetails(result, false, false, false, false)
-    p.Items = store.fillBooksDetails(result, true, true, true, true)
-  } else {
-    p.Items = store.fillBooksDetails(result, false, false, false, false)
-  }
+	if !noDetails {
+		//p.Items = store.fillBooksDetails(result, false, false, false, false)
+		p.Items = store.fillBooksDetails(result, true, true, true, true)
+	} else {
+		p.Items = store.fillBooksDetails(result, false, false, false, false)
+	}
 	p.Items = result
 	return p, nil
 }
@@ -631,7 +643,7 @@ func (store *dbStore) UpdateBook(book *models.Book) (*models.Book, error) {
 	book.CatalogID = found.CatalogID
 	book.Catalog = models.Catalog{}
 	// if found != book {
-		// store.db.Save(book)
+	// store.db.Save(book)
 	// }
 	return book, nil
 }
