@@ -144,15 +144,15 @@ func main() {
         // }()
         // rest.NewRestService(Listen, store, Catalog).StartListen()
 	} else if SearchLibID != "" {
-		result, err := store.FindBooksByLibID(SearchLibID)
-		if err == nil && len(result) != 0 {
+		result, err := store.GetBooksByLibID(SearchLibID, true, Page, PerPage)
+		if err == nil {
 			utils.PrintJson(result, true)
 		} else {
 			log.Println("Nothing found")
 		}
 	} else if SearchTitle != "" {
-		result, err := store.FindBooks(models.Search{Title: SearchTitle, Author: SearchAuthor, Limit: PerPage})
-		if err == nil && len(result) != 0 {
+		result, err := store.GetBooksBySerie(SearchTitle, SearchAuthor, true, Page, PerPage)
+		if err == nil {
 			utils.PrintJson(result, true)
 		} else {
 			log.Println("Nothing found")
@@ -172,42 +172,42 @@ func main() {
 			log.Println("Nothing found")
 		}
 	} else if GetBooks {
-		result, err := store.GetBooks("", Page, PerPage)
+		result, err := store.GetBooks("", false, false, Page, PerPage)
 		if err == nil {
 			utils.PrintJson(result, true)
 		} else {
 			log.Println("Nothing found")
 		}
 	} else if GetGenres {
-		result, err := store.GetGenres(Page, PerPage) // фильтр добавить
+		result, err := store.GetGenres("", Page, PerPage) // фильтр добавить
 		if err == nil {
 			utils.PrintJson(result, true)
 		} else {
 			log.Println("Nothing found")
 		}
 	} else if GetSeries {
-		result, err := store.GetSeries(Page, PerPage) // фильтр добавить
+		result, err := store.GetSeries("", Page, PerPage) // фильтр добавить
 		if err == nil {
 			utils.PrintJson(result, true)
 		} else {
 			log.Println("Nothing found")
 		}
 	} else if GetBooksByAuthor != 0 {
-		result, err := store.ListAuthorBooks(GetBooksByAuthor, false, Page, PerPage, models.Search{})
+		result, err := store.GetBooksByAuthorID(GetBooksByAuthor, false, Page, PerPage, models.Search{})
 		if err == nil {
 			utils.PrintJson(result, true)
 		} else {
 			log.Println("Nothing found")
 		}
 	} else if GetBooksByGenre != 0 {
-		result, err := store.ListGenreBooks(GetBooksByGenre, false, Page, PerPage, models.Search{})
+		result, err := store.GetBooksByGenreID(GetBooksByGenre, false, Page, PerPage, models.Search{})
 		if err == nil {
 			utils.PrintJson(result, true)
 		} else {
 			log.Println("Nothing found")
 		}
 	} else if GetBooksBySerie != 0 {
-		result, err := store.ListSerieBooks(GetBooksBySerie, false, Page, PerPage, models.Search{})
+		result, err := store.GetBooksBySerieID(GetBooksBySerie, false, Page, PerPage, models.Search{})
 		if err == nil {
 			utils.PrintJson(result, true)
 		} else {

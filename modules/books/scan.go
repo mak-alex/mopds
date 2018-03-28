@@ -31,7 +31,7 @@ var (
   bad_archives uint64 = 0
   bad_books uint64 = 0
   books_in_archives uint64 = 0
-  mOPDS_SCAN_INPX bool = true
+  mOPDS_SCAN_INPX bool = false
 )
 
 func LogStats() {
@@ -65,13 +65,13 @@ func ProcessALL(dataDir string, store datastore.DataStorer) {
       fmt.Println(inpxErr)
     }
   } else {
-    zipsErr := processZIPS(dataDir, genres, store)
-    if zipsErr != nil {
-      fmt.Println(zipsErr)
-    }
-    go func() {
+    // zipsErr := processZIPS(dataDir, genres, store)
+    // if zipsErr != nil {
+      // fmt.Println(zipsErr)
+    // }
+    // go func() {
       processFILES(dataDir, genres, store)
-    }()
+    // }()
   }
 }
 

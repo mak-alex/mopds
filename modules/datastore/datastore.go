@@ -114,75 +114,186 @@ func (store *dbStore) fillBooksDetails(books []models.Book, fillGenres bool, fil
 	return books
 }
 
-func (store *dbStore) FindBooks(params models.Search) ([]models.Book, error) {
-	title := params.Title
-	authors := params.Author
-	limit := params.Limit
-
-	// utils.PrintJson(params)
-
+func (store *dbStore) GetRandomBooksByAuthorID(authorID uint, noDetails bool, page int, per_page int) (*paginate.PaginatedList, error) {
+	count := 0
 	result := []models.Book{}
 	search := store.db.Select("books.*").Table("books").
-		// select * from books left join bcovers on books.id=bcovers.book_id left join covers on covers.id=bcovers.book_id
-		Joins("left join bauthors on books.id=bauthors.book_id left join authors on authors.id=bauthors.author_id left join bcovers on books.id=bcovers.book_id left join covers on covers.id=bcovers.book_id left join bseries on bseries.book_id = books.id left join series on bseries.serie_id=series.id")
-	for _, term := range utils.SplitBySeparators(strings.ToLower(title)) {
-		search = search.Where("title LIKE ?", "%"+term+"%")
-	}
-	for _, term := range utils.SplitBySeparators(strings.ToLower(authors)) {
-		search = search.Where("full_name LIKE ?", "%"+term+"%")
-	}
+		Joins("left join bauthors on books.id=bauthors.book_id left join authors on authors.id=bauthors.author_id left join bcovers on books.id=bcovers.book_id left join covers on covers.id=bcovers.book_id left join bgenres on bgenres.book_id = books.id left join genres on bgenres.genre_id=genres.id")
 
-	search = addParams(search, params).Group("books.id")
+	search = search.Where("authors.ID=?", authorID)
 
-	if limit > 0 {
-		search = search.Limit(limit)
+	//search = addParams(search, params).Group("books.id")
+
+	if per_page <= 0 {
+		per_page = DEFAULT_PAGE_SIZE
 	}
-	search.Preload("Catalog").Order("title").Find(&result)
+	if per_page > MAX_PAGE_SIZE {
+		per_page = MAX_PAGE_SIZE
+	}
+	if page == 0 {
+		page = 1
+	}
+  search.Count(&count)
+	p := paginate.NewPaginatedList(page, per_page, count)
+	search = search.Limit(p.Limit())
+	search = search.Offset(p.Offset())
+	search.Preload("Catalog").Order("RANDOM()").Find(&result)
 
-	result = store.fillBooksDetails(result, false, false, false, false)
-	return result, nil
+	//p.Items = result
+  if !noDetails {
+    p.Items = store.fillBooksDetails(result, true, true, true, true)
+  } else {
+    p.Items = store.fillBooksDetails(result, false, false, false, false)
+  }
+
+	return p, nil
 }
 
-func (store *dbStore) FindBooksSeries(params models.Search) ([]models.Book, error) {
-	title := params.Title
-	series := params.Series
-	limit := params.Limit
+func (store *dbStore) GetRandomBooksByGenreID(genreID uint, noDetails bool, page int, per_page int) (*paginate.PaginatedList, error) {
+	count := 0
+	result := []models.Book{}
+	search := store.db.Select("books.*").Table("books").
+		Joins("left join bauthors on books.id=bauthors.book_id left join authors on authors.id=bauthors.author_id left join bcovers on books.id=bcovers.book_id left join covers on covers.id=bcovers.book_id left join bgenres on bgenres.book_id = books.id left join genres on bgenres.genre_id=genres.id")
 
+	search = search.Where("genres.ID=?", genreID)
+
+	//search = addParams(search, params).Group("books.id")
+
+	if per_page <= 0 {
+		per_page = DEFAULT_PAGE_SIZE
+	}
+	if per_page > MAX_PAGE_SIZE {
+		per_page = MAX_PAGE_SIZE
+	}
+	if page == 0 {
+		page = 1
+	}
+  search.Count(&count)
+	p := paginate.NewPaginatedList(page, per_page, count)
+	search = search.Limit(p.Limit())
+	search = search.Offset(p.Offset())
+	search.Preload("Catalog").Order("RANDOM()").Find(&result)
+
+	//p.Items = result
+  if !noDetails {
+    p.Items = store.fillBooksDetails(result, true, true, true, true)
+  } else {
+    p.Items = store.fillBooksDetails(result, false, false, false, false)
+  }
+
+	return p, nil
+}
+
+func (store *dbStore) GetRandomBooksBySerieID(serieID uint, noDetails bool, page int, per_page int) (*paginate.PaginatedList, error) {
+	count := 0
 	result := []models.Book{}
 	search := store.db.Select("books.*").Table("books").
 		Joins("left join bauthors on books.id=bauthors.book_id left join authors on authors.id=bauthors.author_id left join bcovers on books.id=bcovers.book_id left join covers on covers.id=bcovers.book_id left join bseries on bseries.book_id = books.id left join series on bseries.serie_id=series.id")
+
+	search = search.Where("series.ID=?", serieID)
+
+	//search = addParams(search, params).Group("books.id")
+
+	if per_page <= 0 {
+		per_page = DEFAULT_PAGE_SIZE
+	}
+	if per_page > MAX_PAGE_SIZE {
+		per_page = MAX_PAGE_SIZE
+	}
+	if page == 0 {
+		page = 1
+	}
+  search.Count(&count)
+	p := paginate.NewPaginatedList(page, per_page, count)
+	search = search.Limit(p.Limit())
+	search = search.Offset(p.Offset())
+	search.Preload("Catalog").Order("RANDOM()").Find(&result)
+
+	//p.Items = result
+  if !noDetails {
+    p.Items = store.fillBooksDetails(result, true, true, true, true)
+  } else {
+    p.Items = store.fillBooksDetails(result, false, false, false, false)
+  }
+
+	return p, nil
+}
+
+func (store *dbStore) GetBooksBySerie(title string, series string, noDetails bool, page int, per_page int) (*paginate.PaginatedList, error) {
+	count := 0
+	result := []models.Book{}
+	search := store.db.Select("books.*").Table("books").
+		Joins("left join bauthors on books.id=bauthors.book_id left join authors on authors.id=bauthors.author_id left join bcovers on books.id=bcovers.book_id left join covers on covers.id=bcovers.book_id left join bseries on bseries.book_id = books.id left join series on bseries.serie_id=series.id")
+
 	for _, term := range utils.SplitBySeparators(strings.ToLower(title)) {
-		search = search.Where("title LIKE ?", "%"+term+"%")
+		search = search.Where("LOWER(title) LIKE ?", "%"+term+"%")
 	}
 	for _, term := range utils.SplitBySeparators(strings.ToLower(series)) {
 		search = search.Where("LOWER(ser) LIKE ?", "%"+term+"%")
 	}
 
-	search = addParams(search, params).Group("books.id")
+	//search = addParams(search, params).Group("books.id")
 
-	if limit > 0 {
-		search = search.Limit(limit)
+	if per_page <= 0 {
+		per_page = DEFAULT_PAGE_SIZE
 	}
+	if per_page > MAX_PAGE_SIZE {
+		per_page = MAX_PAGE_SIZE
+	}
+	if page == 0 {
+		page = 1
+	}
+  search.Count(&count)
+	p := paginate.NewPaginatedList(page, per_page, count)
+	search = search.Limit(p.Limit())
+	search = search.Offset(p.Offset())
 	search.Preload("Catalog").Order("ser_no, title").Find(&result)
 
-	return result, nil
+	//p.Items = result
+  if !noDetails {
+    p.Items = store.fillBooksDetails(result, true, true, true, true)
+  } else {
+    p.Items = store.fillBooksDetails(result, false, false, false, false)
+  }
+
+	return p, nil
 }
 
-func (store *dbStore) FindBooksByLibID(libID string) ([]models.Book, error) {
+func (store *dbStore) GetBooksByLibID(libID string, noDetails bool, page int, per_page int) (*paginate.PaginatedList, error) {
+	count := 0
 	result := []models.Book{}
-	store.db.Select("books.*").Table("books").
-		Where("lib_id = ?", libID).
-		Find(&result)
-	result = store.fillBooksDetails(result, true, true, true, true)
-	return result, nil
+  search := store.db.Select("books.*").Table("books")
+	search = search.Where("lib_id = ?", libID)
+
+	if per_page <= 0 {
+		per_page = DEFAULT_PAGE_SIZE
+	}
+	if per_page > MAX_PAGE_SIZE {
+		per_page = MAX_PAGE_SIZE
+	}
+	if page == 0 {
+		page = 1
+	}
+
+  search.Count(&count)
+	p := paginate.NewPaginatedList(page, per_page, count)
+	search = search.Limit(p.Limit())
+	search = search.Offset(p.Offset())
+	search.Find(&result)
+  if !noDetails {
+    p.Items = store.fillBooksDetails(result, true, true, true, true)
+  } else {
+    p.Items = store.fillBooksDetails(result, false, false, false, false)
+  }
+	return p, nil
 }
 
 func (store *dbStore) GetAuthors(author string, page int, per_page int) (*paginate.PaginatedList, error) {
 	count := 0
 	result := []models.Author{}
-	search := store.db.Order("full_name")
+	search := store.db.Select("authors.*").Table("authors")
 	for _, term := range utils.SplitBySeparators(strings.ToLower(author)) {
-		search = search.Where("full_name LIKE ?", "%"+term+"%")
+		search = search.Where("LOWER(full_name) LIKE ?", "%"+term+"%")
 	}
 	if per_page <= 0 {
 		per_page = DEFAULT_PAGE_SIZE
@@ -193,8 +304,10 @@ func (store *dbStore) GetAuthors(author string, page int, per_page int) (*pagina
 	if page == 0 {
 		page = 1
 	}
-	search.Find(&result).Count(&count)
+
+  search.Count(&count)
 	p := paginate.NewPaginatedList(page, per_page, count)
+	search = search.Order("full_name")
 	search = search.Limit(p.Limit())
 	search = search.Offset(p.Offset())
 	search.Find(&result)
@@ -242,11 +355,14 @@ func (store *dbStore) GetAuthor(authorID uint) (*models.Author, error) {
 	return nil, fmt.Errorf("No author found")
 }
 
-func (store *dbStore) GetSeries(page int, per_page int) (*paginate.PaginatedList, error) {
+func (store *dbStore) GetSeries(serie string, page int, per_page int) (*paginate.PaginatedList, error) {
 	count := 0
 	result := []models.Serie{}
 
-	search := store.db.Order("ser")
+	search := store.db.Select("series*").Table("series")
+  for _, term := range utils.SplitBySeparators(strings.ToLower(serie)) {
+		search = search.Where("LOWER(ser) LIKE ?", "%"+term+"%")
+  }
 	if per_page <= 0 {
 		per_page = DEFAULT_PAGE_SIZE
 	}
@@ -256,7 +372,7 @@ func (store *dbStore) GetSeries(page int, per_page int) (*paginate.PaginatedList
 	if page == 0 {
 		page = 1
 	}
-	search.Find(&result).Count(&count)
+  search.Count(&count)
 	p := paginate.NewPaginatedList(page, per_page, count)
 	search = search.Limit(p.Limit())
 	search = search.Offset(p.Offset())
@@ -268,23 +384,17 @@ func (store *dbStore) GetSeries(page int, per_page int) (*paginate.PaginatedList
 func (store *dbStore) GetSummary() (models.Summary, error) {
 	summary := models.Summary{}
 
-	authors := []models.Author{}
-	books := []models.Book{}
-	genres := []models.Genre{}
-	series := []models.Serie{}
-	catalogs := []models.Catalog{}
-
 	authors_count := 0
 	books_count := 0
 	genres_count := 0
 	series_count := 0
 	catalogs_count := 0
 
-	store.db.Find(&authors).Count(&authors_count)
-	store.db.Find(&books).Count(&books_count)
-	store.db.Find(&genres).Count(&genres_count)
-	store.db.Find(&series).Count(&series_count)
-	store.db.Find(&catalogs).Count(&catalogs_count)
+	store.db.Table("authors").Count(&authors_count)
+	store.db.Table("books").Count(&books_count)
+	store.db.Table("genres").Count(&genres_count)
+	store.db.Table("series").Count(&series_count)
+	store.db.Table("catalogs").Count(&catalogs_count)
 
 	summary.Authors = authors_count
 	summary.Books = books_count
@@ -321,11 +431,13 @@ func (store *dbStore) GetGenresMenu() ([]models.ItemMenu, error) {
   return item, nil
 }
 
-func (store *dbStore) GetGenres(page int, per_page int) (*paginate.PaginatedList, error) {
+func (store *dbStore) GetGenres(genre string, page int, per_page int) (*paginate.PaginatedList, error) {
 	count := 0
 	result := []models.Genre{}
-
-	search := store.db.Order("section")
+  search := store.db.Select("genres.*").Table("genres")
+  for _, term := range utils.SplitBySeparators(strings.ToLower(genre)) {
+		search = search.Where("LOWER(genre) LIKE ? OR LOWER(section) LIKE ? OR LOWER(subsection) LIKE ?", "%"+term+"%", "%"+term+"%", "%"+term+"%")
+  }
 	if per_page <= 0 {
 		per_page = DEFAULT_PAGE_SIZE
 	}
@@ -335,7 +447,9 @@ func (store *dbStore) GetGenres(page int, per_page int) (*paginate.PaginatedList
 	if page == 0 {
 		page = 1
 	}
-	search.Find(&result).Count(&count)
+
+  search.Count(&count)
+
 	p := paginate.NewPaginatedList(page, per_page, count)
 	search = search.Limit(p.Limit())
 	search = search.Offset(p.Offset())
@@ -344,13 +458,16 @@ func (store *dbStore) GetGenres(page int, per_page int) (*paginate.PaginatedList
 	return p, nil
 }
 
-func (store *dbStore) GetBooks(title string, page int, per_page int) (*paginate.PaginatedList, error) {
+func (store *dbStore) GetBooks(title string, noDetails bool, random bool, page int, per_page int) (*paginate.PaginatedList, error) {
 	count := 0
 	result := []models.Book{}
 
 	search := store.db.Select("books.*").Table("books").
 		// select * from books left join bcovers on books.id=bcovers.book_id left join covers on covers.id=bcovers.book_id
 		Joins("left join bauthors on books.id=bauthors.book_id left join authors on authors.id=bauthors.author_id left join bcovers on books.id=bcovers.book_id left join covers on covers.id=bcovers.book_id left join bseries on bseries.book_id = books.id left join series on bseries.serie_id=series.id")
+  for _, term := range utils.SplitBySeparators(strings.ToLower(title)) {
+		search = search.Where("LOWER(title) LIKE ?", "%"+term+"%")
+  }
 	if per_page <= 0 {
 		per_page = DEFAULT_PAGE_SIZE
 	}
@@ -361,27 +478,35 @@ func (store *dbStore) GetBooks(title string, page int, per_page int) (*paginate.
 		page = 1
 	}
 	for _, term := range utils.SplitBySeparators(strings.ToLower(title)) {
-		search = search.Where("title LIKE ?", "%"+term+"%")
+		search = search.Where("LOWER(title) LIKE ?", "%"+term+"%")
 	}
 
-  store.db.Table("books").Count(&count)
+  search.Count(&count)
 	p := paginate.NewPaginatedList(page, per_page, count)
 	search = search.Limit(p.Limit())
 	search = search.Offset(p.Offset())
-	search.Group("books.id").Select("books.*").Table("books").Find(&result)
+  if random {
+    search.Group("books.id").Select("books.*").Table("books").Order("RANDOM()").Find(&result)
+  } else {
+    search.Group("books.id").Select("books.*").Table("books").Find(&result)
+  }
 
   // utils.PrintJson(result, true)
-	p.Items = store.fillBooksDetails(result, true, true, true, true)
+  if !noDetails {
+    p.Items = store.fillBooksDetails(result, true, true, true, true)
+  } else {
+    p.Items = store.fillBooksDetails(result, false, false, false, false)
+  }
 	return p, nil
 }
 
-func (store *dbStore) ListGenreBooks(genreID uint, noDetails bool, page int, per_page int, params models.Search) (*paginate.PaginatedList, error) {
+func (store *dbStore) GetBooksByGenreID(genreID uint, noDetails bool, page int, per_page int, params models.Search) (*paginate.PaginatedList, error) {
 	count := 0
 	result := []models.Book{}
 	search := store.db.Select("books.*").Table("books").
 		Joins("left join bauthors on books.id=bauthors.book_id left join authors on authors.id=bauthors.author_id left join bcovers on books.id=bcovers.book_id left join covers on covers.id=bcovers.book_id left join bgenres on bgenres.book_id = books.id left join genres on bgenres.genre_id=genres.id")
 	search = search.Where("genres.ID=?", genreID)
-	search.Find(&result).Count(&count)
+	search.Count(&count)
 
 	search = addParams(search, params).Group("books.id")
 
@@ -402,20 +527,23 @@ func (store *dbStore) ListGenreBooks(genreID uint, noDetails bool, page int, per
 	search = search.Offset(p.Offset())
 	search.Preload("Catalog").Find(&result)
 
-	if !noDetails {
-		result = store.fillBooksDetails(result, false, false, false, false)
-	}
+  if !noDetails {
+    //p.Items = store.fillBooksDetails(result, false, false, false, false)
+    p.Items = store.fillBooksDetails(result, true, true, true, true)
+  } else {
+    p.Items = store.fillBooksDetails(result, false, false, false, false)
+  }
 	p.Items = result
 	return p, nil
 }
 
-func (store *dbStore) ListSerieBooks(serieID uint, noDetails bool, page int, per_page int, params models.Search) (*paginate.PaginatedList, error) {
+func (store *dbStore) GetBooksBySerieID(serieID uint, noDetails bool, page int, per_page int, params models.Search) (*paginate.PaginatedList, error) {
 	count := 0
 	result := []models.Book{}
 	search := store.db.Select("books.*").Table("books").
 		Joins("left join bauthors on books.id=bauthors.book_id left join authors on authors.id=bauthors.author_id left join bcovers on books.id=bcovers.book_id left join covers on covers.id=bcovers.book_id left join bseries on bseries.book_id = books.id left join series on bseries.serie_id=series.id")
 	search = search.Where("series.ID=?", serieID)
-	search.Find(&result).Count(&count)
+	search.Count(&count)
 
 	search = addParams(search, params).Group("books.id")
 
@@ -436,20 +564,23 @@ func (store *dbStore) ListSerieBooks(serieID uint, noDetails bool, page int, per
 	search = search.Offset(p.Offset())
 	search.Preload("Catalog").Find(&result)
 
-	if !noDetails {
-		result = store.fillBooksDetails(result, false, false, false, false)
-	}
+  if !noDetails {
+    //p.Items = store.fillBooksDetails(result, false, false, false, false)
+    p.Items = store.fillBooksDetails(result, true, true, true, true)
+  } else {
+    p.Items = store.fillBooksDetails(result, false, false, false, false)
+  }
 	p.Items = result
 	return p, nil
 }
 
-func (store *dbStore) ListAuthorBooks(authorID uint, noDetails bool, page int, per_page int, params models.Search) (*paginate.PaginatedList, error) {
+func (store *dbStore) GetBooksByAuthorID(authorID uint, noDetails bool, page int, per_page int, params models.Search) (*paginate.PaginatedList, error) {
 	count := 0
 	result := []models.Book{}
 	search := store.db.Select("books.*").Table("books").
 		Joins("left join bauthors on books.id=bauthors.book_id left join authors on authors.id=bauthors.author_id left join bcovers on books.id=bcovers.book_id left join covers on covers.id=bcovers.book_id left join bseries on bseries.book_id = books.id left join series on bseries.serie_id=series.id")
 	search = search.Where("authors.ID=?", authorID)
-	search.Find(&result).Count(&count)
+	search.Count(&count)
 
 	search = addParams(search, params).Group("books.id")
 
@@ -470,9 +601,12 @@ func (store *dbStore) ListAuthorBooks(authorID uint, noDetails bool, page int, p
 	search = search.Offset(p.Offset())
 	search.Preload("Catalog").Find(&result)
 
-	if !noDetails {
-		result = store.fillBooksDetails(result, false, false, false, false)
-	}
+  if !noDetails {
+    //p.Items = store.fillBooksDetails(result, false, false, false, false)
+    p.Items = store.fillBooksDetails(result, true, true, true, true)
+  } else {
+    p.Items = store.fillBooksDetails(result, false, false, false, false)
+  }
 	p.Items = result
 	return p, nil
 }

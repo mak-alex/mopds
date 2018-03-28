@@ -225,6 +225,38 @@ mak@denied ~ $ http :8000/conf
 ```bash
 mak@denied ~ $ http --form POST :8000/conf data="catalog /mnt/books"
 ```
+#### Find author by name
+```bash
+mak@denied ~ $ http POST :8000/api/v1/authors/search author=перумов
+```
+#### Find book by name
+```bash
+mak@denied ~ $ http POST :8000/api/v1/books/search title="Ген Химеры Часть 1"
+```
+#### Find genre by name
+```bash
+mak@denied ~ $ http POST :8000/api/v1/genres/search genre="Народные песни"
+```
+#### Find serie by name
+```bash
+mak@denied ~ $ http POST :8000/api/v1/series/search title="Ген Химеры"
+```
+#### Get random books by author id
+```bash
+mak@denied ~ $ http GET :8000/api/v1/authors/1/books/random?no-details=true
+```
+#### Get random books
+```bash
+mak@denied ~ $ http GET :8000/api/v1/books/random?no-details=true
+```
+#### Get random books by genre id
+```bash
+mak@denied ~ $ http GET :8000/api/v1/genres/1/books/random?no-details=true
+```
+#### Get random books by serie id
+```bash
+mak@denied ~ $ http GET :8000/api/v1/series/1/books/random?no-details=true
+```
 
 ### Dependencies
 * github.com/namsreal/flag

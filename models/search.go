@@ -5,11 +5,7 @@ type Search struct {
 	Title      string   `json:"title"`
 	Author     string   `json:"author"`
 	Genre      string   `json:"genre"`
-	Section    string   `json:"section"`
-	SubSection string   `json:"subsection"`
-	Series     string   `json:"series"`
-	Ser        string   `json:"ser"`
-	SearchSer  string   `json:"search_ser"`
+	Series     string   `json:"serie"`
 	Limit      int      `json:"limit"`
 	Offset     int      `json:"offset"`
 	Page       int      `json:"page"`

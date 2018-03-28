@@ -1,9 +1,11 @@
+// set ts=2 shiftwidth=2 expandtab
 package rest
 
 import (
+  "fmt"
+  "path"
 	"archive/zip"
 	"log"
-  "io/ioutil"
 	"net/http"
 	"net/url"
 	"strconv"
@@ -16,9 +18,13 @@ import (
 	"bitbucket.org/enlab/mopds/modules/books"
 	"bitbucket.org/enlab/mopds/utils"
 	"github.com/emicklei/go-restful"
+  // "github.com/gorilla/mux"
   "github.com/mattrobenolt/go-memcached"
+  "github.com/auth0/go-jwt-middleware"
+  "github.com/dgrijalva/jwt-go"
 )
 
+var rootdir = "./ui"
 
 type Cache map[string]*memcached.Item
 
@@ -56,13 +62,36 @@ type IncludeLibs struct {
     LogicJS string
 }
 
-func home(req *restful.Request, resp *restful.Response) {
+func jwtAuthentication(req *restful.Request, resp *restful.Response, chain *restful.FilterChain) {
+    jwtMiddleware := jwtmiddleware.New(jwtmiddleware.Options{
+        ValidationKeyGetter: func(token *jwt.Token) (interface{}, error) {
+            return []byte("My Secret"), nil
+        },
+        SigningMethod: jwt.SigningMethodHS256,
+    })
+
+    if err := jwtMiddleware.CheckJWT(resp.ResponseWriter, req.Request); err != nil {
+        fmt.Printf("Authentication error: %v", err)
+    }
+    chain.ProcessFilter(req, resp)
+}
+
+func basicAuthenticate(req *restful.Request, resp *restful.Response, chain *restful.FilterChain) {
+	// usr/pwd = admin/admin
+	u, p, ok := req.Request.BasicAuth()
+	if !ok || u != "admin" || p != "admin" {
+		resp.AddHeader("WWW-Authenticate", "Basic realm=Protected Area")
+		resp.WriteErrorString(401, "401: Not Authorized")
+		return
+	}
+	chain.ProcessFilter(req, resp)
+}
+
+func simpleUI(req *restful.Request, resp *restful.Response) {
 	p := &IncludeLibs{
-		//WebixCSS: "./assets/js/webix/skins/contrast.css",
-		//WebixJS: "./assets/js/webix/webix.js",
-    WebixCSS: "/webix.css",
-    WebixJS: "/webix.js",
-		LogicJS: "/main.js",
+        WebixCSS: "/static/assets/js/webix/skins/contrast.css",
+        WebixJS: "/static/assets/js/webix/webix.js",
+		LogicJS: "/static/assets/js/mopds/main.js",
 	}
 	// you might want to cache compiled templates
 	t, err := template.ParseFiles("ui/index.html")
@@ -79,163 +108,96 @@ type RestService struct {
 	container *restful.Container
 }
 
-func (service RestService) registerBookResource(container *restful.Container) {
-	ws := new(restful.WebService)
-	ws.
-		Path("/book").
-		Consumes(restful.MIME_JSON).
-		Produces(restful.MIME_JSON)
-
-	ws.Route(ws.POST("/search").
-		To(service.searchBooks).
-		Doc("Search for the books").
-		Operation("searchBooks").
-		Returns(200, "OK", []models.Book{}))
-
-	ws.Route(ws.POST("/series").
-		To(service.searchSeries).
-		Doc("Search for the books").
-		Operation("searchBooks").
-		Returns(200, "OK", []models.Book{}))
-
-	ws.Route(ws.GET("/lib/{libId}").
-		To(service.getBooksByLibID).
-		Doc("Get books by libId").
-		Operation("getBooksByLibId").
-		Param(ws.PathParameter("libId", "libId of the book").DataType("string")).
-		Returns(200, "OK", []models.Book{}))
-
-	container.Add(ws)
-}
-
-func (service RestService) registerAuthorResource(container *restful.Container) {
+func (service RestService) registerSimpleUIResource(container *restful.Container) {
 	ws := new(restful.WebService)
 	ws.
 		Path("/").
 		Consumes(restful.MIME_JSON).
 		Produces(restful.MIME_JSON)
-    //Consumes(restful.MIME_XML, restful.MIME_JSON).
-    //Produces(restful.MIME_JSON, restful.MIME_XML)
 
-	ws.Route(ws.GET("/").To(home))
-	ws.Route(ws.GET("/webix.js").To(service.IncludeWebixJS))
-	ws.Route(ws.GET("/main.js").To(service.IncludeLogicJS))
-	ws.Route(ws.GET("/webix.css").To(service.IncludeWebixCSS))
-	ws.Route(ws.GET("/about").
-		To(service.getAbout).
-		Doc("About author and project").
-		Operation("getAbout").
-		Returns(200, "OK", []models.DevInfo{}))
+	ws.Route(ws.GET("/").Filter(basicAuthenticate).To(simpleUI))
+  ws.Route(ws.GET("/static/{subpath:*}").To(staticFromPathParam))
+  ws.Route(ws.GET("/static").To(staticFromQueryParam))
+	container.Add(ws)
+}
 
-	ws.Route(ws.GET("/stat").
-		To(service.getSummary).
-		Doc("Get stat for catalog").
-		Operation("getSummary").
-		Returns(200, "OK", []models.Summary{}))
+func staticFromPathParam(req *restful.Request, resp *restful.Response) {
+  actual := path.Join(rootdir, req.PathParameter("subpath"))
+	fmt.Printf("serving %s ... (from %s)\n", actual, req.PathParameter("subpath"))
+	http.ServeFile(
+		resp.ResponseWriter,
+		req.Request,
+    actual)
+  // respe.WriteEntity(req.PathParameter)
+}
 
-	ws.Route(ws.GET("/series").
-		To(service.getSeries).
-		Doc("Get all available series").
-		Operation("getSeries").
-		Returns(200, "OK", []models.Serie{}))
+func staticFromQueryParam(req *restful.Request, resp *restful.Response) {
+	http.ServeFile(
+		resp.ResponseWriter,
+		req.Request,
+		path.Join(rootdir, req.QueryParameter("resource")))
+}
 
-	ws.Route(ws.POST("/series/search").
-		To(service.searchBooks).
-		Doc("Search for the books").
-		Operation("searchBooks").
-		Returns(200, "OK", []models.Book{}))
+func (service RestService) registerApiResource(container *restful.Container) {
+  restful.DefaultContainer.Router(restful.CurlyRouter{})
+	ws := new(restful.WebService)
+	ws.
+		Path("/api/v1").
+		Consumes(restful.MIME_JSON).
+		Produces(restful.MIME_JSON)
 
-	ws.Route(ws.GET("/series/{serieId}").
-		To(service.getSerie).
-		Doc("Get serie info").
+	ws.Route(ws.GET("/authors").
+		To(service.getAuthors).
+		Doc("Search authors").
+		Operation("getAuthors").
+		Returns(200, "OK", []models.Author{}))
+
+	ws.Route(ws.GET("/authors/{authorId}").
+		To(service.getAuthor).
+		Doc("Get author's info").
 		Operation("getAuthor").
-		Param(ws.PathParameter("serieId", "identifier of the serie").DataType("int")).
-		Returns(200, "OK", models.Serie{}))
+		Param(ws.PathParameter("authorId", "identifier of the author").DataType("int")).
+		Returns(200, "OK", models.Author{}))
 
-	ws.Route(ws.GET("/series/{serieId}/books").
-		To(service.listSeriesBooks).
+	ws.Route(ws.GET("/authors/{authorId}/books").
+		To(service.getBooksByAuthorID).
 		Doc("Show author's books").
-		Operation("listSeriesBooks").
-		Param(ws.PathParameter("serieId", "identifier of the serie").DataType("int")).
+		Operation("getBooksByAuthorID").
+		Param(ws.PathParameter("authorId", "identifier of the author").DataType("int")).
 		Returns(200, "OK", []models.Book{}))
 
-	ws.Route(ws.GET("/series/{serieId}/books/{bookId}").
+	ws.Route(ws.GET("/authors/{authorId}/books/random").
+		To(service.getRandomBooksByAuthorID).
+		Doc("Show author's books").
+		Operation("getRandomBooksByAuthorID").
+		Param(ws.PathParameter("authorId", "identifier of the author").DataType("int")).
+		Returns(200, "OK", []models.Book{}))
+
+	ws.Route(ws.GET("/authors/{authorId}/books/{bookId}").
 		To(service.getBook).
 		Doc("Get specific book info").
 		Operation("getBook").
 		Param(ws.PathParameter("bookId", "identifier of the book").DataType("int")).
 		Returns(200, "OK", models.Book{}))
 
-	ws.Route(ws.GET("/series/{serieId}/books/langs").
-		To(service.getLangs).
-		Doc("Get all available books languages").
-		Operation("getLangs").
-		Returns(200, "OK", []string{"en"}))
-
-	ws.Route(ws.GET("/series/{serieId}/books/{bookId}/download").
+	ws.Route(ws.GET("/authors/{authorId}/books/{bookId}/download").
 		To(service.downloadBook).
 		Doc("Download book content").
 		Operation("downloadBook").
 		Param(ws.PathParameter("bookId", "identifier of the book").DataType("int")).
 		Returns(200, "OK", models.Book{}))
 
-	ws.Route(ws.GET("/series/{serieId}/books/archive").
+	ws.Route(ws.GET("/authors/{authorId}/books/archive").
 		To(service.downloadBooksArchive).
 		Doc("Download books in single zip file").
 		Operation("downloadBooksArchive").
 		Returns(200, "OK", models.Book{}))
 
-	ws.Route(ws.GET("/genres").
-		To(service.getGenres).
-		Doc("Get all available genres").
-		Operation("getGenres").
-		Returns(200, "OK", []models.Genre{}))
-
-	ws.Route(ws.GET("/genres/menu").
-		To(service.getGenresMenu).
-		Doc("Format genres for WebixGroupList").
-		Operation("getGenresMenu").
-		Returns(200, "OK", []models.ItemMenu{}))
-
-	ws.Route(ws.GET("/genres/{genreId}").
-		To(service.getGenre).
-		Doc("Get genre info").
-		Operation("getGenre").
-		Param(ws.PathParameter("genreId", "identifier of the genre").DataType("int")).
-		Returns(200, "OK", models.Genre{}))
-
-	ws.Route(ws.GET("/genres/{genreId}/books").
-		To(service.listGenresBooks).
-		Doc("Show genre's books").
-		Operation("listGenresBooks").
-		Param(ws.PathParameter("genreId", "identifier of the genre").DataType("int")).
-		Returns(200, "OK", []models.Book{}))
-
-	ws.Route(ws.GET("/genres/{genreId}/books/{bookId}").
-		To(service.getBook).
-		Doc("Get specific book info").
-		Operation("getBook").
-		Param(ws.PathParameter("bookId", "identifier of the book").DataType("int")).
-		Returns(200, "OK", models.Book{}))
-
-	ws.Route(ws.GET("/genres/{genreId}/books/langs").
-		To(service.getLangs).
-		Doc("Get all available books languages").
-		Operation("getLangs").
-		Returns(200, "OK", []string{"en"}))
-
-	ws.Route(ws.GET("/genres/{genreId}/books/{bookId}/download").
-		To(service.downloadBook).
-		Doc("Download book content").
-		Operation("downloadBook").
-		Param(ws.PathParameter("bookId", "identifier of the book").DataType("int")).
-		Returns(200, "OK", models.Book{}))
-
-	ws.Route(ws.GET("/genres/{genreId}/books/archive").
-		To(service.downloadBooksArchive).
-		Doc("Download books in single zip file").
-		Operation("downloadBooksArchive").
-		Returns(200, "OK", models.Book{}))
+	ws.Route(ws.POST("/authors/search").
+		To(service.getAuthors).
+		Doc("Search authors").
+		Operation("getAuthors").
+		Returns(200, "OK", []models.Author{}))
 
 	ws.Route(ws.GET("/books").
 		To(service.getBooks).
@@ -269,57 +231,154 @@ func (service RestService) registerAuthorResource(container *restful.Container) 
 		Operation("downloadBooksArchive").
 		Returns(200, "OK", models.Book{}))
 
-	ws.Route(ws.GET("/authors").
-		To(service.searchAuthors).
-		Doc("Search authors").
-		Operation("searchAuthors").
-		Returns(200, "OK", []models.Author{}))
-
-	ws.Route(ws.GET("/authors/{authorId}").
-		To(service.getAuthor).
-		Doc("Get author's info").
-		Operation("getAuthor").
-		Param(ws.PathParameter("authorId", "identifier of the author").DataType("int")).
-		Returns(200, "OK", models.Author{}))
-
-	ws.Route(ws.GET("/authors/{authorId}/books").
-		To(service.listAuthorsBooks).
-		Doc("Show author's books").
-		Operation("listAuthorsBooks").
-		Param(ws.PathParameter("authorId", "identifier of the author").DataType("int")).
+	ws.Route(ws.POST("/books/search").
+		To(service.getBooks).
+		Doc("Search for the books").
+		Operation("getBooks").
 		Returns(200, "OK", []models.Book{}))
 
-	ws.Route(ws.GET("/authors/{authorId}/books/{bookId}").
+	ws.Route(ws.POST("/books/series").
+		To(service.getBooksBySerie).
+		Doc("Search for the books from serie").
+		Operation("getBooksBySerie").
+		Returns(200, "OK", []models.Book{}))
+
+  ws.Route(ws.GET("/books/random").
+		To(service.getRandomBooks).
+		Doc("Search for the books from serie").
+		Operation("getRandomBooks").
+		Returns(200, "OK", []models.Book{}))
+
+	ws.Route(ws.GET("/books/lib/{libId}").
+		To(service.getBooksByLibID).
+		Doc("Get books by libId").
+		Operation("getBooksByLibId").
+		Param(ws.PathParameter("libId", "libId of the book").DataType("string")).
+		Returns(200, "OK", []models.Book{}))
+
+	ws.Route(ws.GET("/genres").
+		To(service.getGenres).
+		Doc("Get all available genres").
+		Operation("getGenres").
+		Returns(200, "OK", []models.Genre{}))
+
+	ws.Route(ws.GET("/genres/menu").
+		To(service.getGenresMenu).
+		Doc("Format genres for WebixGroupList").
+		Operation("getGenresMenu").
+		Returns(200, "OK", []models.ItemMenu{}))
+
+	ws.Route(ws.GET("/genres/{genreId}").
+		To(service.getGenre).
+		Doc("Get genre info").
+		Operation("getGenre").
+		Param(ws.PathParameter("genreId", "identifier of the genre").DataType("int")).
+		Returns(200, "OK", models.Genre{}))
+
+	ws.Route(ws.GET("/genres/{genreId}/books").
+		To(service.getBooksByGenreID).
+		Doc("Show genre's books").
+		Operation("getBooksByGenreID").
+		Param(ws.PathParameter("genreId", "identifier of the genre").DataType("int")).
+		Returns(200, "OK", []models.Book{}))
+
+	ws.Route(ws.GET("/genres/{genreId}/books/random").
+		To(service.getRandomBooksByGenreID).
+		Doc("Show genre's books").
+		Operation("getRandomBooksByGenreID").
+		Param(ws.PathParameter("genreId", "identifier of the genre").DataType("int")).
+		Returns(200, "OK", []models.Book{}))
+
+	ws.Route(ws.GET("/genres/{genreId}/books/{bookId}").
 		To(service.getBook).
 		Doc("Get specific book info").
 		Operation("getBook").
 		Param(ws.PathParameter("bookId", "identifier of the book").DataType("int")).
 		Returns(200, "OK", models.Book{}))
 
-	ws.Route(ws.GET("/authors/{authorId}/books/langs").
-		To(service.getLangs).
-		Doc("Get all available books languages").
-		Operation("getLangs").
-		Returns(200, "OK", []string{"en"}))
-
-	ws.Route(ws.GET("/authors/{authorId}/books/{bookId}/download").
+	ws.Route(ws.GET("/genres/{genreId}/books/{bookId}/download").
 		To(service.downloadBook).
 		Doc("Download book content").
 		Operation("downloadBook").
 		Param(ws.PathParameter("bookId", "identifier of the book").DataType("int")).
 		Returns(200, "OK", models.Book{}))
 
-	ws.Route(ws.GET("/authors/{authorId}/books/archive").
+	ws.Route(ws.GET("/genres/{genreId}/books/archive").
 		To(service.downloadBooksArchive).
 		Doc("Download books in single zip file").
 		Operation("downloadBooksArchive").
 		Returns(200, "OK", models.Book{}))
 
-	ws.Route(ws.POST("/authors/search").
-		To(service.searchAuthors).
-		Doc("Search authors").
-		Operation("searchAuthors").
-		Returns(200, "OK", []models.Author{}))
+	ws.Route(ws.POST("/genres/search").
+		To(service.getGenres).
+		Doc("Search for the genres").
+		Operation("getGenres").
+		Returns(200, "OK", []models.Genre{}))
+
+	ws.Route(ws.GET("/series").
+		To(service.getSeries).
+		Doc("Get all available series").
+		Operation("getSeries").
+		Returns(200, "OK", []models.Serie{}))
+
+	ws.Route(ws.POST("/series/search").
+		To(service.getSeries).
+		Doc("Search for the series").
+		Operation("getSeries").
+		Returns(200, "OK", []models.Serie{}))
+
+	ws.Route(ws.GET("/series/{serieId}").
+		To(service.getSerie).
+		Doc("Get serie info").
+		Operation("getAuthor").
+		Param(ws.PathParameter("serieId", "identifier of the serie").DataType("int")).
+		Returns(200, "OK", models.Serie{}))
+
+	ws.Route(ws.GET("/series/{serieId}/books").
+		To(service.getBooksBySerieID).
+		Doc("Show author's books").
+		Operation("getBooksBySerieID").
+		Param(ws.PathParameter("serieId", "identifier of the serie").DataType("int")).
+		Returns(200, "OK", []models.Book{}))
+
+	ws.Route(ws.GET("/series/{serieId}/books/random").
+		To(service.getRandomBooksBySerieID).
+		Doc("Show author's books").
+		Operation("getRandomBooksBySerieID").
+		Param(ws.PathParameter("serieId", "identifier of the serie").DataType("int")).
+		Returns(200, "OK", []models.Book{}))
+
+	ws.Route(ws.GET("/series/{serieId}/books/{bookId}").
+		To(service.getBook).
+		Doc("Get specific book info").
+		Operation("getBook").
+		Param(ws.PathParameter("bookId", "identifier of the book").DataType("int")).
+		Returns(200, "OK", models.Book{}))
+
+	ws.Route(ws.GET("/series/{serieId}/books/{bookId}/download").
+		To(service.downloadBook).
+		Doc("Download book content").
+		Operation("downloadBook").
+		Param(ws.PathParameter("bookId", "identifier of the book").DataType("int")).
+		Returns(200, "OK", models.Book{}))
+
+	ws.Route(ws.GET("/series/{serieId}/books/archive").
+		To(service.downloadBooksArchive).
+		Doc("Download books in single zip file").
+		Operation("downloadBooksArchive").
+		Returns(200, "OK", models.Book{}))
+
+	ws.Route(ws.GET("/about").
+		To(service.getAbout).
+		Doc("About author and project").
+		Operation("getAbout").
+		Returns(200, "OK", []models.DevInfo{}))
+
+	ws.Route(ws.GET("/stat").
+		To(service.getSummary).
+		Doc("Get stat for catalog").
+		Operation("getSummary").
+		Returns(200, "OK", []models.Summary{}))
 
 	container.Add(ws)
 }
@@ -327,9 +386,11 @@ func (service RestService) registerAuthorResource(container *restful.Container) 
 func (service RestService) getSeries(request *restful.Request, response *restful.Response) {
 	search := models.Search{}
 	request.ReadEntity(&search)
+	log.Println("Searching serie ", search)
 	page := utils.ParseInt(request.QueryParameter("page"))
 	per_page := utils.ParseInt(request.QueryParameter("per_page"))
-	result, err := service.dataStore.GetSeries(page, per_page)
+	result, err := service.dataStore.GetSeries(search.Series, page, per_page)
+
 	if err == nil {
 		response.WriteEntity(result)
 	} else {
@@ -351,9 +412,10 @@ func (service RestService) getGenresMenu(request *restful.Request, response *res
 func (service RestService) getGenres(request *restful.Request, response *restful.Response) {
 	search := models.Search{}
 	request.ReadEntity(&search)
+	log.Println("Searching genre ", search)
 	page := utils.ParseInt(request.QueryParameter("page"))
 	per_page := utils.ParseInt(request.QueryParameter("per_page"))
-	result, err := service.dataStore.GetGenres(page, per_page)
+	result, err := service.dataStore.GetGenres(search.Genre, page, per_page)
 	if err == nil {
 		response.WriteEntity(result)
 	} else {
@@ -386,9 +448,11 @@ func (service RestService) getSummary(request *restful.Request, response *restfu
 func (service RestService) getBooks(request *restful.Request, response *restful.Response) {
 	search := models.Search{}
 	request.ReadEntity(&search)
+	log.Println("Searching books ", search)
+	noDetails, _ := utils.ParseBool(request.QueryParameter("no-details"))
 	page := utils.ParseInt(request.QueryParameter("page"))
 	per_page := utils.ParseInt(request.QueryParameter("per_page"))
-	result, err := service.dataStore.GetBooks(search.Title, page, per_page)
+	result, err := service.dataStore.GetBooks(search.Title, noDetails, false, page, per_page)
 	if err == nil {
 		response.WriteEntity(result)
 	} else {
@@ -411,9 +475,12 @@ func (service RestService) getBook(request *restful.Request, response *restful.R
 
 func (service RestService) getBooksByLibID(request *restful.Request, response *restful.Response) {
 	libID := request.PathParameter("libId")
+	noDetails, _ := utils.ParseBool(request.QueryParameter("no-details"))
+	page := utils.ParseInt(request.QueryParameter("page"))
+	per_page := utils.ParseInt(request.QueryParameter("per_page"))
 	log.Println("Get books by libId ", libID)
-	result, err := service.dataStore.FindBooksByLibID(libID)
-	if err == nil && len(result) != 0 {
+	result, err := service.dataStore.GetBooksByLibID(libID, noDetails, page, per_page)
+	if err == nil {
 		response.WriteEntity(result)
 	} else {
 		response.AddHeader("Content-Type", "text/plain")
@@ -492,15 +559,16 @@ func (service RestService) downloadBooksArchive(request *restful.Request, respon
 	}
 }
 
-func (service RestService) searchBooks(request *restful.Request, response *restful.Response) {
+func (service RestService) getRandomBooksByAuthorID(request *restful.Request, response *restful.Response) {
 	search := models.Search{}
 	request.ReadEntity(&search)
+	log.Println("Searching book series ", search)
+	authorId, _ := strconv.ParseUint(request.PathParameter("authorId"), 0, 32)
+  noDetails, _ := utils.ParseBool(request.QueryParameter("no-details"))
 	page := utils.ParseInt(request.QueryParameter("page"))
 	per_page := utils.ParseInt(request.QueryParameter("per_page"))
 
-	log.Println("Searching books ", search)
-
-	result, err := service.dataStore.GetBooks(search.Title, page, per_page)
+	result, err := service.dataStore.GetRandomBooksByAuthorID(uint(authorId), noDetails, page, per_page)
 	if err == nil {
 		response.WriteEntity(result)
 	} else {
@@ -509,13 +577,69 @@ func (service RestService) searchBooks(request *restful.Request, response *restf
 	}
 }
 
-func (service RestService) searchSeries(request *restful.Request, response *restful.Response) {
+func (service RestService) getRandomBooksByGenreID(request *restful.Request, response *restful.Response) {
 	search := models.Search{}
 	request.ReadEntity(&search)
 	log.Println("Searching book series ", search)
+	genreId, _ := strconv.ParseUint(request.PathParameter("genreId"), 0, 32)
+  noDetails, _ := utils.ParseBool(request.QueryParameter("no-details"))
+	page := utils.ParseInt(request.QueryParameter("page"))
+	per_page := utils.ParseInt(request.QueryParameter("per_page"))
 
-	result, err := service.dataStore.FindBooksSeries(search)
-	if err == nil && len(result) != 0 {
+	result, err := service.dataStore.GetRandomBooksByGenreID(uint(genreId), noDetails, page, per_page)
+	if err == nil {
+		response.WriteEntity(result)
+	} else {
+		response.AddHeader("Content-Type", "text/plain")
+		response.WriteErrorString(http.StatusNotFound, "Nothing was found\n")
+	}
+}
+
+func (service RestService) getRandomBooksBySerieID(request *restful.Request, response *restful.Response) {
+	search := models.Search{}
+	request.ReadEntity(&search)
+	log.Println("Searching book series ", search)
+	serieId, _ := strconv.ParseUint(request.PathParameter("serieId"), 0, 32)
+  noDetails, _ := utils.ParseBool(request.QueryParameter("no-details"))
+	page := utils.ParseInt(request.QueryParameter("page"))
+	per_page := utils.ParseInt(request.QueryParameter("per_page"))
+
+	result, err := service.dataStore.GetRandomBooksBySerieID(uint(serieId), noDetails, page, per_page)
+	if err == nil {
+		response.WriteEntity(result)
+	} else {
+		response.AddHeader("Content-Type", "text/plain")
+		response.WriteErrorString(http.StatusNotFound, "Nothing was found\n")
+	}
+}
+
+func (service RestService) getRandomBooks(request *restful.Request, response *restful.Response) {
+	search := models.Search{}
+	request.ReadEntity(&search)
+	log.Println("Searching book series ", search)
+  noDetails, _ := utils.ParseBool(request.QueryParameter("no-details"))
+	page := utils.ParseInt(request.QueryParameter("page"))
+	per_page := utils.ParseInt(request.QueryParameter("per_page"))
+
+	result, err := service.dataStore.GetBooks(search.Title, noDetails, true, page, per_page)
+	if err == nil {
+		response.WriteEntity(result)
+	} else {
+		response.AddHeader("Content-Type", "text/plain")
+		response.WriteErrorString(http.StatusNotFound, "Nothing was found\n")
+	}
+}
+
+func (service RestService) getBooksBySerie(request *restful.Request, response *restful.Response) {
+	search := models.Search{}
+	request.ReadEntity(&search)
+	log.Println("Searching book series ", search)
+  noDetails, _ := utils.ParseBool(request.QueryParameter("no-details"))
+	page := utils.ParseInt(request.QueryParameter("page"))
+	per_page := utils.ParseInt(request.QueryParameter("per_page"))
+
+	result, err := service.dataStore.GetBooksBySerie(search.Title, search.Series, noDetails, page, per_page)
+	if err == nil {
 		response.WriteEntity(result)
 	} else {
 		response.AddHeader("Content-Type", "text/plain")
@@ -535,9 +659,10 @@ func (service RestService) getLangs(request *restful.Request, response *restful.
 	}
 }
 
-func (service RestService) searchAuthors(request *restful.Request, response *restful.Response) {
+func (service RestService) getAuthors(request *restful.Request, response *restful.Response) {
 	search := models.Search{}
 	request.ReadEntity(&search)
+  log.Println("Searching authors ", search)
 	page := utils.ParseInt(request.QueryParameter("page"))
 	per_page := utils.ParseInt(request.QueryParameter("per_page"))
 
@@ -589,7 +714,7 @@ func (service RestService) getAuthor(request *restful.Request, response *restful
 	}
 }
 
-func (service RestService) listGenresBooks(request *restful.Request, response *restful.Response) {
+func (service RestService) getBooksByGenreID(request *restful.Request, response *restful.Response) {
 	genreId, _ := strconv.ParseUint(request.PathParameter("genreId"), 0, 32)
 	noDetails, _ := utils.ParseBool(request.QueryParameter("no-details"))
 	page := utils.ParseInt(request.QueryParameter("page"))
@@ -597,7 +722,7 @@ func (service RestService) listGenresBooks(request *restful.Request, response *r
 
 	log.Println("Requesting genre's books ", genreId)
 
-	result, err := service.dataStore.ListGenreBooks(uint(genreId), noDetails, page, per_page, models.Search{})
+	result, err := service.dataStore.GetBooksByGenreID(uint(genreId), noDetails, page, per_page, models.Search{})
 	if err == nil {
 		response.WriteEntity(result)
 	} else {
@@ -606,7 +731,7 @@ func (service RestService) listGenresBooks(request *restful.Request, response *r
 	}
 }
 
-func (service RestService) listSeriesBooks(request *restful.Request, response *restful.Response) {
+func (service RestService) getBooksBySerieID(request *restful.Request, response *restful.Response) {
 	serieId, _ := strconv.ParseUint(request.PathParameter("serieId"), 0, 32)
 	noDetails, _ := utils.ParseBool(request.QueryParameter("no-details"))
 	page := utils.ParseInt(request.QueryParameter("page"))
@@ -614,7 +739,7 @@ func (service RestService) listSeriesBooks(request *restful.Request, response *r
 
 	log.Println("Requesting serie's books ", serieId)
 
-	result, err := service.dataStore.ListSerieBooks(uint(serieId), noDetails, page, per_page, models.Search{})
+	result, err := service.dataStore.GetBooksBySerieID(uint(serieId), noDetails, page, per_page, models.Search{})
 	if err == nil {
 		response.WriteEntity(result)
 	} else {
@@ -623,7 +748,7 @@ func (service RestService) listSeriesBooks(request *restful.Request, response *r
 	}
 }
 
-func (service RestService) listAuthorsBooks(request *restful.Request, response *restful.Response) {
+func (service RestService) getBooksByAuthorID(request *restful.Request, response *restful.Response) {
 	authorId, _ := strconv.ParseUint(request.PathParameter("authorId"), 0, 32)
 	noDetails, _ := utils.ParseBool(request.QueryParameter("no-details"))
 	page := utils.ParseInt(request.QueryParameter("page"))
@@ -631,26 +756,7 @@ func (service RestService) listAuthorsBooks(request *restful.Request, response *
 
 	log.Println("Requesting author's books ", authorId)
 
-	result, err := service.dataStore.ListAuthorBooks(uint(authorId), noDetails, page, per_page, models.Search{})
-	if err == nil {
-		response.WriteEntity(result)
-	} else {
-		response.AddHeader("Content-Type", "text/plain")
-		response.WriteErrorString(http.StatusNotFound, "No books was found\n")
-	}
-}
-
-func (service RestService) listAuthorsBooksPost(request *restful.Request, response *restful.Response) {
-	authorId, _ := strconv.ParseUint(request.PathParameter("authorId"), 0, 32)
-	noDetails, _ := utils.ParseBool(request.QueryParameter("no-details"))
-	page := utils.ParseInt(request.QueryParameter("page"))
-	per_page := utils.ParseInt(request.QueryParameter("per_page"))
-	search := models.Search{}
-	request.ReadEntity(&search)
-
-	log.Println("Requesting author's books ", authorId)
-
-	result, err := service.dataStore.ListAuthorBooks(uint(authorId), noDetails, page, per_page, search)
+	result, err := service.dataStore.GetBooksByAuthorID(uint(authorId), noDetails, page, per_page, models.Search{})
 	if err == nil {
 		response.WriteEntity(result)
 	} else {
@@ -663,23 +769,6 @@ func (service RestService) StartListen() {
 	log.Println("Start listening on ", service.listen)
 	server := &http.Server{Addr: service.listen, Handler: service.container}
 	log.Fatal(server.ListenAndServe())
-}
-
-func (service RestService) IncludeLogicJS(request *restful.Request, response *restful.Response) {
-    data, _ := ioutil.ReadFile("ui/assets/js/mopds/main.js")
-    response.Header().Set("Content-Type", "application/javascript; charset=utf-8")
-		response.Write(data)
-}
-func (service RestService) IncludeWebixJS(request *restful.Request, response *restful.Response) {
-    data, _ := ioutil.ReadFile("ui/assets/js/webix/webix.js")
-    response.Header().Set("Content-Type", "application/javascript; charset=utf-8")
-		response.Write(data)
-}
-
-func (service RestService) IncludeWebixCSS(request *restful.Request, response *restful.Response) {
-    data, _ := ioutil.ReadFile("ui/assets/js/webix/skins/contrast.css")
-    response.Header().Set("Content-Type", "text/css; charset=utf-8")
-		response.Write(data)
 }
 
 func NewRestService(listen string, dataStore datastore.DataStorer, dataDir string) RestServer {
@@ -701,8 +790,8 @@ func NewRestService(listen string, dataStore datastore.DataStorer, dataDir strin
 	// Add container filter to respond to OPTIONS
 	service.container.Filter(service.container.OPTIONSFilter)
 
-	service.registerBookResource(service.container)
-	service.registerAuthorResource(service.container)
+	service.registerSimpleUIResource(service.container)
+	service.registerApiResource(service.container)
 
   go func() {
     server := memcached.NewServer(":11211", make(Cache))
