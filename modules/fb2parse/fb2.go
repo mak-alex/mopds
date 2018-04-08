@@ -1,4 +1,4 @@
-package fb2parse
+package fb2
 
 import (
 	"bitbucket.org/enlab/mopds/models"

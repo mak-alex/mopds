@@ -637,7 +637,8 @@ func (store *dbStore) UpdateBook(book *models.Book) (*models.Book, error) {
 	found := new(models.Book)
 	store.db.Select("distinct books.*").Table("books").
 		Joins("left join catalogs on catalogs.id = books.catalog_id").
-		Where("lib_id = ? and file_name = ?", book.LibID, book.Catalog.CatName).
+		// Where("lib_id = ? and file_name = ?", book.LibID, book.Catalog.CatName).
+        Where("file_name = ?", book.Catalog.CatName).
 		First(found)
 	book.ID = found.ID
 	book.CatalogID = found.CatalogID

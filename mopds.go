@@ -16,18 +16,11 @@ import (
 	"github.com/namsral/flag"
 )
 
+// TODO: скачать все книги серии...
+// TODO: скачать все книги автора...
 // TODO: пофиксить проблему с кодировками при индексировании файло из архивов
 // TODO: пофиксить проблему с дубликатами при индексировании (и при повтороном)
-// TODO: добавить возможность индексировать без inpx
 // TODO: добавить поддержку форматов epub/pdf
-// TODO: добавить возможность индексировать директорию с *.{fb2,epub}
-func findINPX(catalog string) []string {
-	inpx_files, err := filepath.Glob(filepath.Join(catalog, "*.inpx"))
-	if err != nil {
-		log.Fatal(err)
-	}
-	return inpx_files
-}
 
 func setDatabaseConfig(Catalog string, username string, password string, host string, dbname string, dbtype string, dblog bool, sslmode string) *models.DBConfig {
 	result := new(models.DBConfig)
