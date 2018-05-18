@@ -268,4 +268,5 @@ mak@denied ~ $ http GET :8000/api/v1/series/1/books?random=true&no-details=true
 * add support for other book formats, epub/mobi/pdf/etc
 * add the indexing process in the API output, etc.
 * add opds catalog functionality
-* Placement in the catalog of e-books, any formats specified in the configuration file.
+* to optimize and speed up the work of indexing books to work on low-power computers (example cubieboard/RPi / BeagleBone/WirenBoard / etc)
+* to fix the problem with encoding when indexing a file from the archive
