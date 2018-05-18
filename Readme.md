@@ -262,3 +262,10 @@ mak@denied ~ $ http GET :8000/api/v1/series/1/books?random=true&no-details=true
 * github.com/namsreal/flag
 * github.com/emicklei/go-restful
 * github.com/jinzhu/gorm
+
+## TODO:
+
+* add support for other book formats, epub/mobi/pdf/etc
+* add the indexing process in the API output, etc.
+* add opds catalog functionality
+* Placement in the catalog of e-books, any formats specified in the configuration file.
