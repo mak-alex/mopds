@@ -1,7 +1,7 @@
 package utils
 
 import (
-	"bitbucket.org/enlab/mopds/modules/prettyjson"
+	"github.com/mak-alex/mopds/modules/prettyjson"
 	"encoding/json"
 	"fmt"
 	"log"

@@ -3,7 +3,7 @@ package models
 import (
 	"regexp"
 
-	"bitbucket.org/enlab/mopds/utils"
+	"github.com/mak-alex/mopds/utils"
 )
 
 var re = regexp.MustCompile(`^[\s\,]*(.*?)[\,\s]*$`)

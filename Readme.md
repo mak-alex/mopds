@@ -20,8 +20,8 @@ Free program for Linux operating systems, designed to quickly create an electron
 
 ## Install
 ```bash
-mak@denied ~ $ go get bitbucket.org/enlab/mopds         # get project
-mak@denied ~ $ cd $GOPATH/src/bitbucket.org/enlab/mopds # go to the directory
+mak@denied ~ $ go get github.com/mak-alex/mopds         # get project
+mak@denied ~ $ cd $GOPATH/src/github.com/mak-alex/mopds # go to the directory
 mak@denied ~ $ go get                                   # get depends
 mak@denied ~ $ make run                                 # start project
 mak@denied ~ $ make build                               # build project

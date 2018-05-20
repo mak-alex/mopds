@@ -1,8 +1,8 @@
 package datastore
 
 import (
-	"bitbucket.org/enlab/mopds/models"
-	"bitbucket.org/enlab/mopds/modules/paginate"
+	"github.com/mak-alex/mopds/models"
+	"github.com/mak-alex/mopds/modules/paginate"
 )
 
 // DataStorer interface for data layer

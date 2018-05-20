@@ -8,11 +8,11 @@ import (
 	"os"
 	"path/filepath"
 
-	"bitbucket.org/enlab/mopds/models"
-	"bitbucket.org/enlab/mopds/modules/books"
-	"bitbucket.org/enlab/mopds/modules/datastore"
-	"bitbucket.org/enlab/mopds/modules/rest"
-	"bitbucket.org/enlab/mopds/utils"
+	"github.com/mak-alex/mopds/models"
+	"github.com/mak-alex/mopds/modules/books"
+	"github.com/mak-alex/mopds/modules/datastore"
+	"github.com/mak-alex/mopds/modules/rest"
+	"github.com/mak-alex/mopds/utils"
 	"github.com/namsral/flag"
 )
 
@@ -263,7 +263,7 @@ func main() {
 		devinfo.Email = "alex-m.a.k@yandex.kz"
 		devinfo.Project.Name = "mOPDS"
 		devinfo.Project.Version = "0.1.0"
-		devinfo.Project.Link = "bitbucket.org/enlab/mopds"
+		devinfo.Project.Link = "github.com/mak-alex/mopds"
 		devinfo.Project.Created = "24.03.18 22:59"
 
 		utils.PrintJson(devinfo, true)

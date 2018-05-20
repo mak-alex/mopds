@@ -1,8 +1,8 @@
 package fb2parse
 
 import (
-	"bitbucket.org/enlab/mopds/models"
-	"bitbucket.org/enlab/mopds/utils"
+	"github.com/mak-alex/mopds/models"
+	"github.com/mak-alex/mopds/utils"
 	"bytes"
 	"encoding/xml"
 	"fmt"

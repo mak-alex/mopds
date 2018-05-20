@@ -6,9 +6,9 @@ import (
 	"strconv"
 	"strings"
 
-	"bitbucket.org/enlab/mopds/models"
-	"bitbucket.org/enlab/mopds/modules/paginate"
-	"bitbucket.org/enlab/mopds/utils"
+	"github.com/mak-alex/mopds/models"
+	"github.com/mak-alex/mopds/modules/paginate"
+	"github.com/mak-alex/mopds/utils"
 	"github.com/jinzhu/gorm"
 	_ "github.com/jinzhu/gorm/dialects/mysql"
 	_ "github.com/jinzhu/gorm/dialects/postgres"

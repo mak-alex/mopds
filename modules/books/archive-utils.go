@@ -2,7 +2,7 @@ package books
 
 import (
 	"archive/zip"
-	"bitbucket.org/enlab/mopds/models"
+	"github.com/mak-alex/mopds/models"
 	"fmt"
 	"io"
 	"log"

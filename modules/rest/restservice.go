@@ -13,10 +13,10 @@ import (
 	"text/template"
 	"time"
 
-	"bitbucket.org/enlab/mopds/models"
-	"bitbucket.org/enlab/mopds/modules/books"
-	"bitbucket.org/enlab/mopds/modules/datastore"
-	"bitbucket.org/enlab/mopds/utils"
+	"github.com/mak-alex/mopds/models"
+	"github.com/mak-alex/mopds/modules/books"
+	"github.com/mak-alex/mopds/modules/datastore"
+	"github.com/mak-alex/mopds/utils"
 	"github.com/emicklei/go-restful"
 	// "github.com/gorilla/mux"
 	"github.com/auth0/go-jwt-middleware"
@@ -403,7 +403,7 @@ func (service RestService) getAbout(request *restful.Request, response *restful.
 	devinfo.Email = "alex-m.a.k@yandex.kz"
 	devinfo.Project.Name = "mOPDS"
 	devinfo.Project.Version = "0.1.0"
-	devinfo.Project.Link = "bitbucket.org/enlab/mopds"
+	devinfo.Project.Link = "github.com/mak-alex/mopds"
 	devinfo.Project.Created = "24.03.18 22:59"
 	response.WriteEntity(devinfo)
 }
