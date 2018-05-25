@@ -114,6 +114,7 @@ sslmode disable
 ```
 mOPDS
 ├── conf
+│   ├── genre.json
 │   └── mopds.conf - configuration file
 ├── LICENSE
 ├── Makefile - run and build project	
@@ -130,19 +131,22 @@ mOPDS
 │   ├── search.go
 │   ├── serie.go
 │   └── summary.go
-├── modules - modules for working with database, pagination, inpx files, etc..
-│   ├── datastore
-│   │   ├── datastore.go
-│   │   └── datastorer.go
-│   ├── inpx
-│   │   ├── archive-utils.go
-│   │   ├── genre.json
-│   │   └── inpxreader.go
-│   ├── paginate
-│   │   └── paginate.go
-│   └── rest
-│       ├── restserver.go
-│       └── restservice.go
+├── modules - mopdules for working with database, pagination, inpx files, etc..
+│   ├── books
+│   │   ├── archive-utils.go
+│   │   └── scan.go
+│   ├── datastore
+│   │   ├── datastore.go
+│   │   └── datastorer.go
+│   ├── fb2parse
+│   │   └── parser.go
+│   ├── paginate
+│   │   └── paginate.go
+│   ├── prettyjson
+│   │   └── prettyjson.go
+│   ├── rest
+│   │   ├── restserver.go
+│   │   └── restservice.go
 ├── mopds.go 
 ├── Readme.md
 └── utils
@@ -253,7 +257,8 @@ mak@denied ~ $ http GET :8000/api/v1/series/1/books?random=true&no-details=true
 
 ### Dependencies
 * github.com/namsreal/flag
-* github.com/emicklei/go-restful
+* ant0ine/go-json-rest
+* StephanDollberg/go-json-rest-middleware-jwt
 * github.com/jinzhu/gorm
 
 ## TODO:
