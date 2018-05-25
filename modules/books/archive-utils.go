@@ -2,8 +2,8 @@ package books
 
 import (
 	"archive/zip"
-	"github.com/mak-alex/mopds/models"
 	"fmt"
+	"github.com/mak-alex/mopds/models"
 	"io"
 	"log"
 	"os"
@@ -15,9 +15,8 @@ func UnzipBookToWriter(dataDir string, book *models.Book, writer io.Writer) (err
 	container := book.Catalog.CatName
 	catalog_path := book.Catalog.Path
 	cat_ext := filepath.Ext(container)
-	fileName := book.FileName + book.Format
+	fileName := book.FileName + "." + book.Format
 
-	fmt.Println(cat_ext)
 	if cat_ext == ".zip" {
 		r, err := zip.OpenReader(filepath.Join(catalog_path, container))
 		if err != nil {
