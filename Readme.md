@@ -150,6 +150,11 @@ mOPDS
 ```
 
 ## Example query
+#### Auth and get lang list
+```bash
+mak@denied ~ $ id=`http POST :8000/api/v1/login username=admin password=admin | grep token | cut -d "\"" -f 4`
+mak@denied ~ $ http :8000/api/v1/langs "Authorization: Bearer ${id}"
+```
 #### Get all authors
 ```bash
 mak@denied ~ $ http :8000/authors
@@ -161,10 +166,6 @@ mak@denied ~ $ http :8000/authors/1
 #### Get all books by author id
 ```bash
 mak@denied ~ $ http :8000/authors/1/books
-```
-#### Get all books by author id and download bookd by id
-```bash
-mak@denied ~ $ http :8000/authors/1/books/1/download
 ```
 #### Get all books
 ```bash
@@ -190,10 +191,6 @@ mak@denied ~ $ http :8000/genres/1
 ```bash
 mak@denied ~ $ http :8000/genres/1/books
 ```
-#### Get all books by genre id and download bookd by id
-```bash
-mak@denied ~ $ http :8000/genres/1/books/1/download
-```
 #### Get all series
 ```bash
 mak@denied ~ $ http :8000/series
@@ -205,10 +202,6 @@ mak@denied ~ $ http :8000/series/1
 #### Get all books by serie id
 ```bash
 mak@denied ~ $ http :8000/series/1/books
-```
-#### Get all books by serie id and download bookd by id
-```bash
-mak@denied ~ $ http :8000/series/1/books/1/download
 ```
 
 #### Start scanning the book library
