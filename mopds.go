@@ -11,7 +11,7 @@ import (
 	"github.com/mak-alex/mopds/models"
 	"github.com/mak-alex/mopds/modules/books"
 	"github.com/mak-alex/mopds/modules/datastore"
-	"github.com/mak-alex/mopds/modules/rest"
+	"github.com/mak-alex/mopds/modules/new_rest"
 	"github.com/mak-alex/mopds/utils"
 	"github.com/namsral/flag"
 )
