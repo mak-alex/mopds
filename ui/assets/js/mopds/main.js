@@ -4,7 +4,8 @@ var menu_data = [
   { id:"genres", icon: "", value:"Genres" },
   { id:"series", icon:"", value:"Series" },
   { id:"contact", icon:"", value:"Contact Us" }
-]; 
+];
+
 var header = {view:"toolbar",elements:[{ view:"label",  label: "mOPDS Simple Client"},{ view:"text", id:"grouplist_input", placeholder:"Поиск ..."}]};
 var authors= { id:"authors", css:"preview-box", rows:[
   {
@@ -16,18 +17,19 @@ var authors= { id:"authors", css:"preview-box", rows:[
     ],
     datafetch: 20,
     loadahead: 20,
-    url:"http://192.168.88.27:8000/api/v1/authors",
+    url:"/api/v1/authors",
       onDataRequest: function (start, count) {
         onBeforeFilterCount++;
-        webix.ajax().get("http://192.168.88.27:8000/api/v1/authors?page="+onBeforeFilterCount+"&per_page="+count).then(function(data){
+        webix.ajax().get("/api/v1/authors?page="+onBeforeFilterCount+"&per_page="+count).then(function(data){
           console.log(data.json());
           this.clearAll();
           this.parse(data.json());
-        })
+        });
         return false;
       }
   }
-]}
+]};
+
 var books = { id:"books", css:"preview-box", rows:[
   {
     id: "books_list",
@@ -45,16 +47,17 @@ var books = { id:"books", css:"preview-box", rows:[
       },
       "onDataRequest": function (start, count) {
         onBeforeFilterCount++;
-        webix.ajax().get("http://192.168.88.27:8000/api/v1/books?no-details=true&page="+onBeforeFilterCount+"&per_page="+count).then(function(data){
+        webix.ajax().get("/api/v1/books?no-details=true&page="+onBeforeFilterCount+"&per_page="+count).then(function(data){
           console.log(data.json());
           this.parse(data.json());
-        })
+        });
         return false;
       }
     },
-    url: "http://192.168.88.27:8000/api/v1/books?no-details=true"
+    url: "/api/v1/books?no-details=true"
   }
-]}
+]};
+
 var genres = { id:"genres", css:"preview-box", rows: [
   {
       height: 35,
@@ -79,7 +82,8 @@ var genres = { id:"genres", css:"preview-box", rows: [
         }
       },
   }
-]}
+]};
+
 var series = { id:"series", css:"preview-box", rows: [
   {
       height: 35,
@@ -95,7 +99,7 @@ var series = { id:"series", css:"preview-box", rows: [
     select:true,
     on:{
       "onItemClick":function(id, e, trg){
-        webix.message(id)
+          webix.message(id);
       }
     },
     scheme:{
@@ -108,7 +112,7 @@ var series = { id:"series", css:"preview-box", rows: [
       return obj.full_name.substr(0,1);
     },
   }
-]}
+]};
 
 var contacts = { id:"contact", css:"preview-box", rows: [
   {
@@ -123,13 +127,13 @@ var contacts = { id:"contact", css:"preview-box", rows: [
       { id : "project.link", header : "Size", fillspace : true, sort : "string" },
       { id : "project.created", header : "Size", fillspace : true, sort : "string" },
     ],
-    url: "http://192.168.88.27:8000/api/v1/about",
+    url: "/api/v1/about",
     select : true,
     scrollX : true,
     datatype : "json",
     autoConfig: true
   }
-]}
+]};
 
 var onBeforeFilterCount = 0;
 webix.ready(function(){
@@ -152,28 +156,28 @@ webix.ready(function(){
 
     webix.ui.fullScreen();
 
-    webix.ajax().get("http://192.168.88.27:8000/api/v1/books?no-details=true", function(text, data, XmlHttpRequest){
+    webix.ajax().get("/api/v1/books?no-details=true", function(text, data, XmlHttpRequest){
       $$("books_list").parse(data.json().items, "json");
     });
 
-    webix.ajax().get("http://192.168.88.27:8000/api/v1/genres/menu", function(text, data, XmlHttpRequest){
+    webix.ajax().get("/api/v1/genres/menu", function(text, data, XmlHttpRequest){
       console.log(data.json());
       $$("genres_list").parse(data.json(), "json");
     });
 
-    webix.ajax().get("http://192.168.88.27:8000/api/v1/series", function(text, data, XmlHttpRequest){
+    webix.ajax().get("/api/v1/series", function(text, data, XmlHttpRequest){
       $$("series_list").parse(data.json().items, "json");
     });
     $$("list_genre_input").attachEvent("onTimedKeyPress",function(){
         var value = this.getValue().toLowerCase();
         $$("genres_list").filter(function(obj){
             return obj.value.toLowerCase().indexOf(value)==0;
-        })
+        });
     });
     $$("list_serie_input").attachEvent("onTimedKeyPress",function(){
         var value = this.getValue().toLowerCase();
         $$("series_list").filter(function(obj){
             return obj.ser.toLowerCase().indexOf(value)==0;
-        })
+        });
     });
 });
