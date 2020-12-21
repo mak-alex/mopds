@@ -16,11 +16,6 @@ import (
 	"github.com/namsral/flag"
 )
 
-// TODO: пофиксить проблему с кодировками при индексировании файло из архивов
-// TODO: пофиксить проблему с дубликатами при индексировании (и при повтороном)
-// TODO: добавить возможность индексировать без inpx
-// TODO: добавить поддержку форматов epub/pdf
-// TODO: добавить возможность индексировать директорию с *.{fb2,epub}
 func findINPX(catalog string) []string {
 	inpx_files, err := filepath.Glob(filepath.Join(catalog, "*.inpx"))
 	if err != nil {
